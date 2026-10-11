@@ -4,6 +4,16 @@ import './calendar.css';
 const kinds = { urgent: 'Urgent work', meeting: 'Meeting', work_done: 'Work completed', reminder: 'Reminder', task: 'Task deadline' };
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 const initial = () => ({ title: '', kind: 'meeting', date: today(), time: '', endTime: '', location: '', description: '', taskKey: '', meet: false });
+const connectionErrors = {
+  api_disabled: 'Google Calendar API is not enabled for the project that created your OAuth client. Enable it in that same Google Cloud project, then connect again.',
+  consent_denied: 'Google Calendar permission was not approved. Connect again and review the requested permission.',
+  permission_missing: 'Google did not return the Calendar permission and offline access needed by this app. Connect again and approve access to the calendars created by I2I By AI.',
+  credentials_invalid: 'Google rejected the client credentials. Check the client ID and secret in the backend settings.',
+  authorization_expired: 'The Google authorization expired or was already used. Start a new connection from this workspace.',
+  token_failed: 'The backend could not finish authorization with Google. Check its connection to Google and try a new connection.',
+  calendar_failed: 'Google authorization finished, but creating or opening the I2I By AI calendar failed. Check Calendar API setup and account permissions, then reconnect.',
+  storage_failed: 'Google returned the calendar, but the app could not save the connection. Check MongoDB and the backend encryption key before reconnecting.'
+};
 async function read(response) { const body = await response.json().catch(() => { throw Error('Calendar is unavailable. Check the backend and refresh.'); }); if (!response.ok) throw Error(body.error || 'Calendar is unavailable.'); return body; }
 const post = (path, body) => fetch('/api/calendar/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) }).then(read);
 
@@ -21,9 +31,9 @@ export default function CalendarWorkspace({ clientId, clientName, demo = false }
     const controller = new AbortController();
     const load = () => refresh(controller.signal).catch(e => { if (!controller.signal.aborted) setError(e.message); });
     load(); window.addEventListener('workspace-tasks-changed', load);
-    const outcome = new URLSearchParams(window.location.search).get('calendar');
+    const params = new URLSearchParams(window.location.search), outcome = params.get('calendar');
     if (outcome === 'connected') setNotice('Google Calendar connected. Choose an entry to sync.');
-    if (outcome === 'failed') setError('Google connection did not finish. Check credentials, consent and Calendar API setup, then connect again.');
+    if (outcome === 'failed') setError(connectionErrors[params.get('calendarReason')] || 'Google connection did not finish. Check credentials, consent and Calendar API setup, then connect again.');
     return () => { controller.abort(); window.removeEventListener('workspace-tasks-changed', load); };
   }, [clientId]);
   async function action(work) {

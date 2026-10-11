@@ -10,6 +10,8 @@ Places entered in Add task or calendar entries open a Google Maps search at the 
 
 Enable the Google Calendar API in your Google Cloud project. Configure OAuth consent and a Web application OAuth client. While the consent screen is in testing, add your Google account as a test user. Register this exact authorized redirect URI:
 
+The API must be enabled in the same project that created the OAuth client. Enabling it in an older project does not enable it for a new OAuth client. [Google's API enablement page](https://console.cloud.google.com/flows/enableapi?apiid=calendar-json.googleapis.com) lets you select the intended project.
+
 `http://127.0.0.1:5173/api/calendar/oauth/callback`
 
 Add these to server/.env privately:
@@ -41,5 +43,7 @@ For a meeting, enter its start time and check Create a Google Meet link when syn
 Calendar popup reminders: meetings 30 minutes before; unfinished deadlines/reminders three days and one day before; completion entries none. Resend customer emails remain a separate feature with their own setup and delivery switch.
 
 If a Google request times out, check Google Calendar before retrying. A connection interrupted during calendar creation may leave an extra calendar, which can be reviewed in Google. In OAuth testing, refresh tokens can expire and require reconnection.
+
+Connection failures now show a specific category for a disabled API, missing consent, invalid credentials, an expired authorization, Calendar access failure or connection storage failure. Only a fixed diagnostic code is included in the return URL; provider responses, tokens, secrets and authorization codes are never included.
 
 References: [Google OAuth web flow](https://developers.google.com/identity/protocols/oauth2/web-server), [Calendar scopes](https://developers.google.com/workspace/calendar/api/auth), [Calendar events and Meet](https://developers.google.com/workspace/calendar/api/v3/reference/events/insert), [Google Maps URLs](https://developers.google.com/maps/documentation/urls/get-started).

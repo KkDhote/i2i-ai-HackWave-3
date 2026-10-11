@@ -4,6 +4,13 @@ export const calendarScope = 'https://www.googleapis.com/auth/calendar.app.creat
 export const kinds = { urgent: 'Urgent work', meeting: 'Meeting', work_done: 'Work completed', reminder: 'Reminder', task: 'Task deadline' };
 export const indiaDay = value => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(value));
 export const mapUrl = place => place ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}` : null;
+export function calendarFailureReason(error, stage) {
+  if (['accessNotConfigured', 'SERVICE_DISABLED'].includes(error.googleReason)) return 'api_disabled';
+  if (stage === 'consent') return 'consent_denied';
+  if (stage === 'grant') return 'permission_missing';
+  if (stage === 'token') return error.googleReason === 'invalid_client' ? 'credentials_invalid' : error.googleReason === 'invalid_grant' ? 'authorization_expired' : 'token_failed';
+  return stage === 'save' ? 'storage_failed' : 'calendar_failed';
+}
 const validDate = date => typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(Date.parse(date)) && new Date(date).toISOString().slice(0, 10) === date;
 export function parseCalendarEntry(body) {
   if (!body || typeof body.title !== 'string' || !body.title.trim() || body.title.length > 180 || !Object.hasOwn(kinds, body.kind) || !validDate(body.date)) return null;

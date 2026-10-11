@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomBytes, createHash } from 'node:crypto';
 import { getDb } from './db.js';
 import { taskKey } from './goalsRoutes.js';
-import { calendarConfig, calendarScope, parseCalendarEntry, newEntry, taskEntries, googleEvent, eventId, sealTokens, openTokens, mapUrl } from './calendar.js';
+import { calendarConfig, calendarScope, calendarFailureReason, parseCalendarEntry, newEntry, taskEntries, googleEvent, eventId, sealTokens, openTokens, mapUrl } from './calendar.js';
 
 export function createCalendarRouter({ getDatabase = getDb, env = process.env, fetchImpl = fetch } = {}) {
   const router = Router(), states = new Map();
@@ -23,7 +23,10 @@ export function createCalendarRouter({ getDatabase = getDb, env = process.env, f
   async function request(url, options = {}) {
     const response = await fetchImpl(url, { ...options, signal: AbortSignal.timeout(15000), redirect: 'error' });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(failure(response.status === 401 ? 'Reconnect Google Calendar to renew permission.' : 'Google rejected the calendar request. Check account permissions and Calendar API setup.', 502), { googleStatus: response.status });
+    if (!response.ok) {
+      const reason = data.error?.errors?.[0]?.reason || data.error?.details?.find(detail => detail.reason)?.reason || (typeof data.error === 'string' ? data.error : '');
+      throw Object.assign(failure(response.status === 401 ? 'Reconnect Google Calendar to renew permission.' : 'Google rejected the calendar request. Check account permissions and Calendar API setup.', 502), { googleStatus: response.status, googleReason: ['accessNotConfigured', 'SERVICE_DISABLED', 'invalid_client', 'invalid_grant'].includes(reason) ? reason : '' });
+    }
     return data;
   }
   async function connection(db) {
@@ -82,10 +85,14 @@ export function createCalendarRouter({ getDatabase = getDb, env = process.env, f
     const cookie = req.get('cookie')?.split(';').map(s => s.trim()).find(s => s.startsWith('i2i_calendar_state='))?.slice('i2i_calendar_state='.length);
     if (!state || state !== cookie || !pending || pending.expires < Date.now()) return res.status(400).send('Calendar connection expired or invalid. Return to the workspace and connect again.');
     states.delete(state); res.clearCookie('i2i_calendar_state', { path: '/api/calendar' });
+    let stage = 'consent';
     try {
       if (req.query.error || typeof req.query.code !== 'string') throw Error('Consent not granted');
+      stage = 'token';
       const tokens = await request('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ code: req.query.code, client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET, redirect_uri: config().redirect, grant_type: 'authorization_code', code_verifier: pending.verifier }).toString() });
+      stage = 'grant';
       if (!tokens.access_token || !tokens.refresh_token || !tokens.scope?.split(' ').includes(calendarScope)) throw Error('Incomplete consent');
+      stage = 'calendar';
       const db = await getDatabase(), previous = await db.collection('iw_calendar_connection').findOne({ _id: 'workspace' });
       // Never reuse another account's calendar. Check access under the new token first.
       let calendar;
@@ -94,10 +101,11 @@ export function createCalendarRouter({ getDatabase = getDb, env = process.env, f
       }
       if (!calendar) calendar = await google({ accessToken: tokens.access_token }, '/calendars', 'POST', { summary: 'I2I By AI', timeZone: 'Asia/Kolkata', description: 'Task deadlines, meetings and completion dates from I2I By AI.' });
       if (!calendar.id) throw Error('Missing calendar');
+      stage = 'save';
       tokens.expiresAt = Date.now() + (tokens.expires_in || 3600) * 1000;
       await db.collection('iw_calendar_connection').updateOne({ _id: 'workspace' }, { $set: { calendarId: calendar.id, tokens: sealTokens(tokens, config().key) } }, { upsert: true });
       res.redirect(`${config().frontend}?calendar=connected#workspace-calendar`);
-    } catch { res.redirect(`${config().frontend}?calendar=failed#workspace-calendar`); }
+    } catch (error) { res.redirect(`${config().frontend}?calendar=failed&calendarReason=${calendarFailureReason(error, stage)}#workspace-calendar`); }
   });
   router.post('/api/calendar/disconnect', safe(async (_req, res) => {
     if (syncing) throw failure('Wait for the current sync to finish.', 409);
