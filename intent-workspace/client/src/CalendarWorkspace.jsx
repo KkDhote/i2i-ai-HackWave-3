@@ -18,10 +18,16 @@ async function read(response) { const body = await response.json().catch(() => {
 const post = (path, body) => fetch('/api/calendar/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(60000) }).then(read);
 
 export default function CalendarWorkspace({ clientId, clientName, demo = false }) {
+  const [expanded, setExpanded] = useState(() => window.location.hash === '#workspace-calendar');
   const [entries, setEntries] = useState([]), [connection, setConnection] = useState({}), [form, setForm] = useState(initial), [month, setMonth] = useState(today().slice(0, 7));
   const [day, setDay] = useState(''), [error, setError] = useState(''), [notice, setNotice] = useState(''), [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const query = '?clientId=' + encodeURIComponent(clientId || '');
+  useEffect(() => {
+    const visitCalendar = () => { if (window.location.hash === '#workspace-calendar') setExpanded(true); };
+    window.addEventListener('hashchange', visitCalendar);
+    return () => window.removeEventListener('hashchange', visitCalendar);
+  }, []);
   async function refresh(signal) {
     const [records, status] = await Promise.all([fetch('/api/calendar/entries' + query, { signal: signal || AbortSignal.timeout(15000) }).then(read), fetch('/api/calendar/status', { signal: signal || AbortSignal.timeout(15000) }).then(read)]);
     if (signal?.aborted) return;
@@ -53,7 +59,10 @@ export default function CalendarWorkspace({ clientId, clientName, demo = false }
   const offset = new Date(month + '-01T12:00:00').getDay();
   const showTitle = entry => demo ? 'Workspace entry' : entry.title;
   return <section className="card calendar-workspace" id="workspace-calendar" aria-label="Calendar and meetings">
-    <h2>Calendar, meetings & places</h2><p className="sub">Dates for {clientName} · India time. Urgent work, deadlines, meetings and recorded completion dates.</p>
+    <details className="calendar-disclosure" open={expanded} onToggle={event => setExpanded(event.currentTarget.open)}>
+    <summary className="calendar-summary"><div><h2>Calendar, meetings & places</h2><p className="sub">Dates for {clientName} · India time</p></div><span className="calendar-summary-hint" aria-hidden="true">{expanded ? 'Collapse' : 'Expand'}</span></summary>
+    <div className="calendar-content">
+    <p className="sub">Urgent work, deadlines, meetings and recorded completion dates.</p>
     <div className="calendar-toolbar"><span className="note">{connection.connected ? 'Google Calendar connected · I2I By AI' : connection.configured ? 'Ready to connect Google Calendar' : 'Google Calendar setup needed'}</span>
       {!connection.connected ? <button className="btn" disabled={busy || !connection.configured} onClick={() => action(async () => { if (connection.workspaceUrl && window.location.origin !== new URL(connection.workspaceUrl).origin) { window.location.assign(connection.workspaceUrl + '#workspace-calendar'); return; } const result = await post('connect', {}); window.location.assign(result.url); })}>Connect Google Calendar</button> : <button className="btn ghost" disabled={busy} onClick={() => action(async () => { await post('disconnect', {}); await refresh(); setNotice('Disconnected. Existing Google events are retained.'); })}>Disconnect Google Calendar</button>}
       <button className="btn ghost" disabled={busy} onClick={() => action(() => refresh())}>Refresh calendar</button></div>
@@ -87,5 +96,6 @@ export default function CalendarWorkspace({ clientId, clientName, demo = false }
       </div><div className="calendar-entry-actions"><button className="btn ghost" disabled={busy || !connection.connected || demo} onClick={() => action(async () => { const result = await post('sync' + query, { ids: [entry.id] }); await refresh(); const state = result.results[0]; if (state.state !== 'synced') throw Error(state.error); setNotice(state.meetState === 'failure' ? 'Event synced, but Google could not create the Meet link.' : state.meetState === 'pending' ? 'Event synced. Google is preparing the Meet link; sync again to check.' : 'Entry synced to Google Calendar.'); })}>{entry.sync ? 'Update / check Google' : 'Sync to Google'}</button>
         {!demo && entry.sync?.calendarUrl && <a href={entry.sync.calendarUrl} target="_blank" rel="noopener noreferrer">Open Google event</a>}{!demo && entry.sync?.meetUrl && <a className="btn" href={entry.sync.meetUrl} target="_blank" rel="noopener noreferrer">Join Google Meet</a>}</div>
     </article>)}</div>{!filtered.length && <p className="fine">No dated entries for this selection. Choose another month or add an entry.</p>}{filtered.length > 100 && <p className="fine">Showing the first 100 entries. Select a date to narrow the agenda.</p>}
+    </div></details>
   </section>;
 }
