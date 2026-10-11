@@ -237,7 +237,7 @@ export default function App() {
       </aside>
       <main id="main" tabIndex={-1}>
         <NotificationCenter demo={demo} />
-        <VoiceAssistant demo={demo} />
+        <VoiceAssistant key={clientId} demo={demo} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} />
         {view && shown && <>
           <div className="head">
             <div><h2 className="big">{mk(view.plan.title)}</h2><p className="sub">{view.plan.desc}</p></div>
@@ -261,7 +261,7 @@ export default function App() {
         <TaskList mk={mk} />
         <GoalWorkspace />
         <MentorConsole />
-        <AddTask />
+        <AddTask key={clientId} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} />
         {!data && !err && <p className="sub">Loading workspace...</p>}
       </main>
       <div className="sr" role="status" aria-live="polite">{announce}</div>

@@ -27,6 +27,8 @@ The workspace then chooses and rearranges relevant UI widgets. The current imple
 | React dashboard and reusable widgets | Demonstrated |
 | Intent-driven layout switching | Demonstrated (rules path) |
 | Client selection and client-specific business data | Demonstrated |
+| Saved chats and resumable task drafts for each client | Implemented; history, client scoping and revisions checked with fake records |
+| Task-specific questions with typed and voice input | Implemented; clear tasks skip extra context questions and saving requires review/confirmation |
 | Overview, usage, meeting, and overdue-work layouts | Demonstrated |
 | MongoDB integration with seed-data fallback | Implemented; runtime environment may vary |
 | AI planning using NVIDIA API | Integrated in current backend; end-to-end validation pending |
@@ -36,6 +38,14 @@ The workspace then chooses and rearranges relevant UI widgets. The current imple
 | Evaluation: rules vs AI | Needs a recorded test run |
 
 **Note:** A high confidence score or a dynamically changing layout is not, by itself, proof that an LLM was used. Check the backend response source and agent trace during demonstrations.
+
+## Client chat and task setup
+
+Select a client in the sidebar, then use **I2I Chat**. Its **Saved chats** menu reopens that client's conversations, including unfinished task drafts. **New chat** keeps the previous conversation available. Messages and drafts are stored in MongoDB; failures are shown with a retry option. This groups conversations in the shared demo workspace; separate authenticated customer accounts are not implemented.
+
+Describe the task naturally, for example `Add a task: Fix login issue; owner Ravi; due tomorrow`. The chatbot asks relevant optional questions, such as the failing app/error, instead of a fixed checklist. Clear tasks skip these questions, and **Skip extra questions** is available. Priority defaults to Medium and status to open. Missing owner, due date and a reason for blocked work are still required. Review the details and confirm before the task appears in the task list. The task saves the supplied brief and context answers for future questions.
+
+To reuse earlier details, reopen the conversation and say `Add a task based on our earlier discussion`. AI intake can use that conversation's context when the existing NVIDIA provider is configured. If AI is unavailable, rules ask for missing details instead of guessing. All messages are retained up to the database document size limit; long chats show recent messages, let users load older pages, and search earlier discussion for relevant model context. The model may ask for clarification when that bounded context is insufficient. These changes were checked with mocked model responses, without sending real client conversations to a provider.
 
 ## Architecture
 

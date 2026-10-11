@@ -5,13 +5,13 @@ import { api } from './api.js';
 globalThis.window = new EventTarget();
 let updates = 0, requests = 0;
 window.addEventListener('workspace-tasks-changed', () => updates++);
-const task = { title: 'Review API', owner: 'Asha', dueDate: '2026-10-12', priority: 'High', status: 'blocked', blocker: 'Waiting for access' };
+const task = { title: 'Review API', owner: 'Asha', dueDate: '2026-10-12', priority: 'High', status: 'blocked', blocker: 'Waiting for access', description: 'Confirm the checkout API returns a valid payment reference.', clientId: 'northwind' };
 globalThis.fetch = async (url, options) => {
   requests++;
   assert.equal(url, '/api/goals/tasks');
   assert.equal(options.method, 'POST');
   const body = JSON.parse(options.body);
-  assert.deepEqual({ ...body, dueAt: undefined }, { title: task.title, owner: task.owner, priority: task.priority, status: task.status, blocker: task.blocker, dueAt: undefined });
+  assert.deepEqual({ ...body, dueAt: undefined }, { title: task.title, owner: task.owner, priority: task.priority, status: task.status, blocker: task.blocker, description: task.description, clientId: task.clientId, dueAt: undefined });
   assert.equal(new Date(body.dueAt).getHours(), 23);
   return new Response(JSON.stringify({ title: task.title, taskKey: 'test' }), { status: 201, headers: { 'Content-Type': 'application/json' } });
 };
