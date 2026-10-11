@@ -169,7 +169,7 @@ export default function App() {
     <div className="app">
       <a className="skip" href="#main">Skip to workspace</a>
       <aside>
-        <div><h1>Intent-to-Interface</h1><p className="sub">Say what you need. The workspace rebuilds itself around it.</p></div>
+        <div><h1>I2I By AI</h1><p className="sub">Say what you need. The workspace rebuilds itself around it.</p></div>
         <form onSubmit={submit}>
           <label htmlFor="q">What are you trying to do?</label>
           <div className="ask">
