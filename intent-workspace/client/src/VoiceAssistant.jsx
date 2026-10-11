@@ -169,7 +169,7 @@ export default function VoiceAssistant({ demo, clientId = null, clientName = 'Wo
       let content = reply.answer;
       if (reply.source === 'rules') {
         if (/how.*(app|workspace)|what.*(app|you).*do|help|features/i.test(value)) {
-          content = 'I2I By AI adapts your dashboard for meetings, usage investigation, and overdue work. Use Add task at the bottom to save work with an owner, due date, priority, status, and blocker reason. Create goals and link tasks to track progress and gaps. Notifications warn three days and one day before a due date, plus overdue work and blockers. Enable desktop alerts in that card for alerts while the app is open. Customer email, WhatsApp and SMS settings are available; delivery is waiting for provider setup. You can also record decisions, preview approvals, simulate completion, and export a handoff.';
+          content = 'I2I By AI adapts your dashboard for meetings, usage investigation, and overdue work. Use Add task at the bottom to save work with an owner, due date, priority, status, and blocker reason. Create goals and link tasks to track progress and gaps. Notifications warn three days and one day before a due date, plus overdue work and blockers. Enable desktop alerts in that card for alerts while the app is open. Customer email, WhatsApp and SMS settings are available; delivery is waiting for provider setup.';
         } else {
           const records = await Promise.all(['/api/goals/tasks', '/api/goals', '/api/mentor/status'].map(async path => {
             const r = await fetch(path, { signal: controller.signal });

@@ -1,4 +1,3 @@
-import MentorConsole from './MentorConsole.jsx';
 import VoiceAssistant from './VoiceAssistant.jsx';
 import AddTask from './AddTask.jsx';
 import TaskList from './TaskList.jsx';
@@ -260,7 +259,6 @@ export default function App() {
         </>}
         <TaskList mk={mk} />
         <GoalWorkspace />
-        <MentorConsole />
         <AddTask key={clientId} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} />
         {!data && !err && <p className="sub">Loading workspace...</p>}
       </main>
