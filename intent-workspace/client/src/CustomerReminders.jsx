@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { maskText } from './lib.js';
 import './customer-reminders.css';
 
-const labels = { email: 'Email', whatsapp: 'WhatsApp', sms: 'SMS' };
-const emptyForm = () => ({ customerName: '', email: '', phone: '', channels: [], enabled: false });
+const labels = { email: 'Email' };
+const emptyForm = () => ({ customerName: '', email: '', channels: ['email'], enabled: false });
 const indiaDate = value => {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? new Intl.DateTimeFormat('en-IN', { dateStyle: 'medium', timeZone: 'Asia/Kolkata' }).format(date) : 'No due date recorded';
@@ -26,7 +26,7 @@ export default function CustomerReminders({ demo = false }) {
   function selectTask(key, reminders = settings.reminders) {
     const record = reminders.find(item => item.taskKey === key);
     selected.current = key; setTaskKey(key);
-    setForm(record ? { customerName: record.customerName || '', email: record.email || '', phone: record.phone || '', channels: record.channels || [], enabled: record.enabled === true } : emptyForm());
+    setForm(record ? { customerName: record.customerName || '', email: record.email || '', channels: (record.channels || []).filter(channel => channel === 'email'), enabled: record.enabled === true } : emptyForm());
     setSaveError(''); setNotice('');
   }
   useEffect(() => {
@@ -74,11 +74,10 @@ export default function CustomerReminders({ demo = false }) {
   }
 
   const needsEmail = form.enabled && form.channels.includes('email');
-  const needsPhone = form.enabled && form.channels.some(channel => channel === 'sms' || channel === 'whatsapp');
   const name = form.customerName.trim();
   return <details className="customer-reminders">
     <summary>Customer reminders</summary>
-    <p className="sub">Set up email, WhatsApp, or SMS reminders three days and one day before a task is due, on its due date, and once after it becomes overdue.</p>
+    <p className="sub">Set up email reminders three days and one day before a task is due, on its due date, and once after it becomes overdue.</p>
     <div className="reminder-channel-status" aria-label="Reminder channel connections">
       {Object.entries(labels).map(([channel, label]) => <span key={channel} className={`reminder-channel ${settings.channels?.[channel]?.configured ? 'configured' : ''}`}><b>{label}</b><span>{!loaded ? loadError ? 'Unavailable' : 'Loading…' : settings.channels?.[channel]?.configured ? `Configured · ${settings.channels[channel].provider}` : `Setup needed${settings.channels?.[channel]?.provider && settings.channels[channel].provider !== 'Not connected' ? ` · ${settings.channels[channel].provider}` : ''}`}</span></span>)}
     </div>
@@ -96,7 +95,6 @@ export default function CustomerReminders({ demo = false }) {
         <div className="reminder-contact-fields">
           <label htmlFor="reminder-customer">Customer name (optional)<input id="reminder-customer" maxLength={100} autoComplete="name" value={form.customerName} onChange={event => edit('customerName', event.target.value)} /></label>
           <label htmlFor="reminder-email">Customer email<input id="reminder-email" type="email" maxLength={254} autoComplete="email" required={needsEmail} value={form.email} onChange={event => edit('email', event.target.value)} /></label>
-          <label htmlFor="reminder-phone">Customer phone<input id="reminder-phone" type="tel" maxLength={16} autoComplete="tel" pattern="\+[1-9][0-9]{7,14}" title="Include + and the country code, followed by 8–15 digits." placeholder="+919876543210" required={needsPhone} value={form.phone} onChange={event => edit('phone', event.target.value)} /><small>Include the country code for WhatsApp and SMS.</small></label>
         </div>
         <fieldset className="reminder-channel-options"><legend>Reminder channels</legend>
           {Object.entries(labels).map(([channel, label]) => <label key={channel}><input type="checkbox" checked={form.channels.includes(channel)} onChange={event => edit('channels', event.target.checked ? [...form.channels, channel] : form.channels.filter(item => item !== channel))} />{label}</label>)}

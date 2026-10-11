@@ -6,7 +6,7 @@ import { reminderChannels } from './customerReminders.js';
 import { sendReminder } from './notificationDelivery.js';
 
 const customerAlert = alert => ['due_1d', 'due_today', 'overdue'].includes(alert.kind) || (alert.kind === 'due_3d' && alert.daysUntilDue === 3);
-const recipientFor = (channel, reminder) => String(channel === 'email' ? reminder.email || '' : reminder.phone || '').trim().toLowerCase();
+const recipientFor = (channel, reminder) => String(reminder.email || '').trim().toLowerCase();
 const deliveryKey = (alert, channel, recipient) => createHash('sha256').update(JSON.stringify([alert.id, channel, recipient])).digest('hex');
 const failureMessage = 'The provider could not accept this request. Check the provider log before sending again.';
 const unknownMessage = 'The provider request outcome is unknown. Verify in the provider console before sending again.';

@@ -7,9 +7,7 @@ import { createHash } from 'node:crypto';
 
 const task = { _id: 'task-1', title: 'Complete UPI checkout', owner: 'Ankit', status: 'in_progress', dueAt: '2026-10-14T18:29:59.999Z', priority: 'Medium', clientId: null };
 const reminder = { taskKey: taskKey(task), customerName: 'Neha', email: 'neha@example.com', phone: '+919876543210', channels: ['email'], enabled: true };
-const env = { NOTIFICATION_DELIVERY_ENABLED: 'true', RESEND_API_KEY: 'test-only-key', NOTIFICATION_EMAIL_FROM: 'demo@example.com',
-  TWILIO_ACCOUNT_SID: `AC${'a'.repeat(32)}`, TWILIO_API_KEY_SID: `SK${'b'.repeat(32)}`, TWILIO_API_KEY_SECRET: 'test-only-secret', TWILIO_SMS_FROM: '+919123456789',
-  TWILIO_WHATSAPP_FROM: 'whatsapp:+919123456789', TWILIO_WHATSAPP_CONTENT_SID: `HX${'c'.repeat(32)}` };
+const env = { NOTIFICATION_DELIVERY_ENABLED: 'true', RESEND_API_KEY: 'test-only-key', NOTIFICATION_EMAIL_FROM: 'demo@example.com' };
 const at = date => Date.parse(`2026-10-${date}T06:30:00Z`);
 const matches = (record, query) => Object.entries(query).every(([key, value]) => value?.$lt ? record[key] < value.$lt : record[key] === value);
 function fakeDb({ tasks = [task], reminders = [reminder], deliveries = [], beforeRead } = {}) {
@@ -52,13 +50,13 @@ test('delivery requires master flag, configured provider and enabled customer co
   assert.equal(databaseCalls, 0);
 });
 
-test('email, WhatsApp and SMS each receive one distinct reserved request', async () => {
+test('legacy phone channels are skipped while email sends once', async () => {
   const db = fakeDb({ reminders: [{ ...reminder, channels: ['email', 'whatsapp', 'sms'] }] }), sent = [];
   const send = async channel => { sent.push(channel); return { status: 'accepted', providerId: `request-${channel}` }; };
   await runNotificationCycle({ db, now: at('11'), env, send });
   await runNotificationCycle({ db, now: at('11'), env, send });
-  assert.deepEqual(sent, ['email', 'whatsapp', 'sms']);
-  assert.equal(new Set(db.rows.iw_notification_deliveries.map(row => row._id)).size, 3);
+  assert.deepEqual(sent, ['email']);
+  assert.equal(new Set(db.rows.iw_notification_deliveries.map(row => row._id)).size, 1);
 });
 
 test('fresh completion, rescheduling or disabled contacts prevent a stale queued send', async () => {
