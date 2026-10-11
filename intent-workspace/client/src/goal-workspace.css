@@ -1,0 +1,9 @@
+.goal-workspace {max-width:1100px;margin:20px auto;padding:20px;background:#fff;color:#172840;border:1px solid #e3e9f2;border-radius:14px}
+.goal-workspace h2{margin-top:0}.goal-create{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;margin:22px 0}
+.goal-create input{padding:12px;min-width:260px;flex:1}.goal-create label{display:grid;gap:6px}.goal-create select{min-width:280px;padding:8px}
+.goal-workspace button{padding:9px 12px;background:#f2f6fd;border:1px solid #c8d6ee;border-radius:8px;cursor:pointer}
+.goal-list{display:grid;gap:18px}.goal-card{padding:20px;border:1px solid #dce5ef;border-radius:12px}
+.goal-card header{display:flex;justify-content:space-between;gap:15px;align-items:center}.goal-card h3{margin:0}
+.goal-card progress{width:100%;height:13px}.goal-graph{padding:15px;background:#f7f9fd;border-radius:10px}
+.goal-root{font-weight:700}.goal-branches{margin:10px 0 0 18px;border-left:2px solid #7aa4dd;padding-left:16px}
+.goal-node{padding:7px}.goal-node small{color:#51647a}.goal-buttons{display:flex;gap:8px;flex-wrap:wrap}.goal-error{color:#b42318}
