@@ -1,4 +1,5 @@
 import MentorConsole from './MentorConsole.jsx';
+import VoiceAssistant from './VoiceAssistant.jsx';
 import { useLayoutEffect, useMemo, useRef, useState, useEffect } from 'react';
 import { api } from './api';
 import GoalWorkspace from './GoalWorkspace.jsx';
@@ -219,6 +220,7 @@ export default function App() {
         <div><h2 className="small">What changed</h2><ol className="log">{log.map((x, i) => <li key={i}>{mk(x)}</li>)}</ol></div>
       </aside>
       <main id="main" tabIndex={-1}>
+        <VoiceAssistant demo={demo} />
         {view && shown && <>
           <div className="head">
             <div><h2 className="big">{mk(view.plan.title)}</h2><p className="sub">{view.plan.desc}</p></div>

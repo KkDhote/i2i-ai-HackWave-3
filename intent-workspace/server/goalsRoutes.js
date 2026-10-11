@@ -32,7 +32,7 @@ const safe = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next)
 router.get('/api/goals/tasks', safe(async (req, res) => {
   const db = await getDb();
   const tasks = await db.collection('iw_tasks').find({}, { projection: { _id: 0 } }).toArray();
-  res.json(tasks.map(t => ({ taskKey: key(t), title: t.title, owner: t.owner, status: t.status, dueAt: t.dueAt, blocker: t.blocker ?? null, clientId: t.clientId ?? null })));
+  res.json(tasks.map(t => ({ taskKey: key(t), title: t.title, owner: t.owner, status: t.status, priority: t.priority, dueAt: t.dueAt, blocker: t.blocker ?? null, clientId: t.clientId ?? null })));
 }));
 router.get('/api/goals', safe(async (req, res) => {
   const db = await getDb();
