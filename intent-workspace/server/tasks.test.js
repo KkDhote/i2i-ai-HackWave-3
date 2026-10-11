@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { parseTask } from './goalsRoutes.js';
 const valid = { title: ' Review API ', owner: ' Asha ', dueAt: '2026-10-12T18:29:59.999Z', priority: 'High', status: 'blocked', blocker: ' Partner key pending ' };
-assert.deepEqual(parseTask(valid), { title: 'Review API', owner: 'Asha', dueAt: valid.dueAt, priority: 'High', status: 'blocked', blocker: 'Partner key pending', description: '', clientId: null });
+assert.deepEqual(parseTask(valid), { title: 'Review API', owner: 'Asha', dueAt: valid.dueAt, priority: 'High', status: 'blocked', blocker: 'Partner key pending', description: '', location: '', clientId: null });
+assert.equal(parseTask({ ...valid, location: ' Baner, Pune ' }).location, 'Baner, Pune');
+assert.equal(parseTask({ ...valid, location: {} }), null);
+assert.equal(parseTask({ ...valid, location: 'x'.repeat(501) }), null);
 assert.equal(parseTask({ ...valid, description: ' OTP expired on Android app. ', clientId: 'northwind' }).description, 'OTP expired on Android app.');
 assert.equal(parseTask({ ...valid, clientId: 'northwind' }).clientId, 'northwind');
 for (const invalid of [{ ...valid, description: {} }, { ...valid, description: 'x'.repeat(6001) }, { ...valid, clientId: { $ne: null } }, { ...valid, clientId: 'client/name' }]) assert.equal(parseTask(invalid), null);

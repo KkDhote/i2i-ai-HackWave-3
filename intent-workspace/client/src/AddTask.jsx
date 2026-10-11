@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { api } from './api.js';
-const initial = { title: '', owner: '', dueDate: '', priority: 'Medium', status: 'open', blocker: '', description: '' };
+const initial = { title: '', owner: '', dueDate: '', priority: 'Medium', status: 'open', blocker: '', description: '', location: '' };
 export default function AddTask({ clientId = null, clientName = 'workspace' }) {
   const [task, setTask] = useState(initial), [busy, setBusy] = useState(false), [error, setError] = useState(''), [saved, setSaved] = useState(false);
   const change = e => { setSaved(false); setTask(t => ({ ...t, [e.target.name]: e.target.value })); };
@@ -20,6 +20,7 @@ export default function AddTask({ clientId = null, clientName = 'workspace' }) {
       <label htmlFor="new-task-details">Task details (optional)<textarea id="new-task-details" name="description" maxLength={6000} rows={3} value={task.description} onChange={change} placeholder="What needs to be done, and any useful context" /></label>
       <label htmlFor="new-task-owner">Owner<input id="new-task-owner" name="owner" required maxLength={100} value={task.owner} onChange={change} placeholder="e.g. Asha, Ravi, or Meera" /></label>
       <label htmlFor="new-task-due">Due date<input id="new-task-due" name="dueDate" type="date" required value={task.dueDate} onChange={change} /></label>
+      <label htmlFor="new-task-location">Place / address (optional)<input id="new-task-location" name="location" maxLength={500} value={task.location} onChange={change} placeholder="e.g. Baner, Pune" /></label>
       <label htmlFor="new-task-priority">Priority<select id="new-task-priority" name="priority" value={task.priority} onChange={change}>{['High', 'Medium', 'Low'].map(p => <option key={p}>{p}</option>)}</select></label>
       <label htmlFor="new-task-status">Status<select id="new-task-status" name="status" value={task.status} onChange={change}><option value="open">Pending / Open</option><option value="in_progress">In progress</option><option value="blocked">Blocked</option><option value="done">Completed</option></select></label>
       <label htmlFor="new-task-blocker">Blocker / pending reason{task.status !== 'blocked' && ' (optional)'}<input id="new-task-blocker" name="blocker" required={task.status === 'blocked'} maxLength={500} value={task.blocker} onChange={change} placeholder="e.g. Waiting for partner API keys" /></label>

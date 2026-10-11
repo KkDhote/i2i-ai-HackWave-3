@@ -32,13 +32,14 @@ export function enrich(goal, tasks, now = Date.now()) {
 const safe = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
 export function parseTask(body) {
   if (!body || !['title', 'owner', 'dueAt'].every(k => typeof body[k] === 'string' && body[k].trim())) return null;
-  const { priority = 'Medium', status = 'open', blocker = '', description = '', clientId = null } = body;
+  const { priority = 'Medium', status = 'open', blocker = '', description = '', location = '', clientId = null } = body;
   if (!['High', 'Medium', 'Low'].includes(priority) || !['open', 'in_progress', 'blocked', 'done'].includes(status)) return null;
   if (body.title.length > 180 || body.owner.length > 100 || typeof blocker !== 'string' || blocker.length > 500) return null;
   if (typeof description !== 'string' || description.length > 6000 || (clientId !== null && (typeof clientId !== 'string' || !/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$/.test(clientId)))) return null;
+  if (typeof location !== 'string' || location.length > 500) return null;
   const date = new Date(body.dueAt);
   if (!Number.isFinite(date.getTime()) || date.toISOString() !== body.dueAt || (status === 'blocked' && !blocker.trim())) return null;
-  return { title: body.title.trim(), owner: body.owner.trim(), dueAt: date.toISOString(), priority, status, blocker: blocker.trim() || null, description: description.trim(), clientId };
+  return { title: body.title.trim(), owner: body.owner.trim(), dueAt: date.toISOString(), priority, status, blocker: blocker.trim() || null, description: description.trim(), location: location.trim(), clientId };
 }
 router.post('/api/goals/tasks', safe(async (req, res) => {
   const task = parseTask(req.body);
@@ -54,7 +55,7 @@ router.post('/api/goals/tasks', safe(async (req, res) => {
 router.get('/api/goals/tasks', safe(async (req, res) => {
   const db = await getDb();
   const tasks = await db.collection('iw_tasks').find({}, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
-  res.json(tasks.map(t => ({ taskKey: key(t), title: t.title, owner: t.owner, status: t.status, priority: t.priority, dueAt: t.dueAt, blocker: t.blocker ?? null, description: t.description || '', clientId: t.clientId ?? null, createdAt: t.createdAt ?? null })));
+  res.json(tasks.map(t => ({ taskKey: key(t), title: t.title, owner: t.owner, status: t.status, priority: t.priority, dueAt: t.dueAt, blocker: t.blocker ?? null, description: t.description || '', location: t.location || '', clientId: t.clientId ?? null, createdAt: t.createdAt ?? null })));
 }));
 router.get('/api/goals', safe(async (req, res) => {
   const db = await getDb();

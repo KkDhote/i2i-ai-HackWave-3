@@ -8,7 +8,7 @@ export const api = {
   createTask: async (task) => {
     const due = new Date(`${task.dueDate}T23:59:59.999`);
     if (!Number.isFinite(due.getTime())) throw Error('Choose a valid due date.');
-    const result = await post('/api/goals/tasks', { title: task.title, owner: task.owner, priority: task.priority, status: task.status, blocker: task.blocker, description: task.description || '', clientId: task.clientId || null, dueAt: due.toISOString() }, 15000);
+    const result = await post('/api/goals/tasks', { title: task.title, owner: task.owner, priority: task.priority, status: task.status, blocker: task.blocker, description: task.description || '', location: task.location || '', clientId: task.clientId || null, dueAt: due.toISOString() }, 15000);
     window.dispatchEvent(new Event('workspace-tasks-changed'));
     return result;
   },

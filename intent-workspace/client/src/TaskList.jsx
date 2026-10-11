@@ -24,14 +24,14 @@ export default function TaskList({ mk }) {
     const timer = setInterval(refresh, 30000);
     return () => { controller?.abort(); clearInterval(timer); window.removeEventListener('workspace-tasks-changed', refresh); };
   }, []);
-  const matches = tasks.filter(t => mk(`${t.title} ${t.description || ''} ${t.owner || ''} ${statusLabel(t.status)}`).toLowerCase().includes(query.toLowerCase().trim()));
+  const matches = tasks.filter(t => mk(`${t.title} ${t.description || ''} ${t.location || ''} ${t.owner || ''} ${statusLabel(t.status)}`).toLowerCase().includes(query.toLowerCase().trim()));
   return <section className="card workspace-tasks" id="workspace-task-list" aria-label="Task list" aria-busy={busy}>
     <h2>Task list</h2><p className="sub">All saved tasks, including upcoming, in-progress, blocked, and completed work. Newly added tasks appear first.</p>
     <label htmlFor="task-search">Find a task</label><input id="task-search" type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search title, details, owner, or status" />
     {error && <p role="alert" className="clar">{error}</p>}
     {busy && <p className="fine" role="status">Updating task list…</p>}
     {!busy && !error && <p className="fine">{matches.length} of {tasks.length} tasks</p>}
-    <div className="task-list-table" tabIndex={0} aria-label="Saved tasks"><table><thead><tr><th>Task</th><th>Owner</th><th>Status</th><th>Priority</th><th>Due date</th><th>Blocker / reason</th></tr></thead><tbody>{matches.map(t => <tr key={t.taskKey} id={`task-${t.taskKey}`}><td>{mk(t.title)}{t.description && <details className="task-description"><summary>Task details</summary><p>{mk(t.description)}</p></details>}</td><td>{mk(t.owner || 'Unassigned')}</td><td>{statusLabel(t.status)}</td><td>{t.priority || 'Not recorded'}</td><td>{t.dueAt && Number.isFinite(Date.parse(t.dueAt)) ? new Date(t.dueAt).toLocaleDateString('en-IN') : 'Not recorded'}</td><td>{mk(t.blocker || 'Not recorded')}</td></tr>)}</tbody></table></div>
+    <div className="task-list-table" tabIndex={0} aria-label="Saved tasks"><table><thead><tr><th>Task</th><th>Owner</th><th>Status</th><th>Priority</th><th>Due date</th><th>Blocker / reason</th></tr></thead><tbody>{matches.map(t => <tr key={t.taskKey} id={`task-${t.taskKey}`}><td>{mk(t.title)}{t.location && <p>{mk(t.location)} {mk(t.location) === t.location && <>· <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.location)}`} target="_blank" rel="noopener noreferrer">View on Maps</a></>}</p>}{t.description && <details className="task-description"><summary>Task details</summary><p>{mk(t.description)}</p></details>}</td><td>{mk(t.owner || 'Unassigned')}</td><td>{statusLabel(t.status)}</td><td>{t.priority || 'Not recorded'}</td><td>{t.dueAt && Number.isFinite(Date.parse(t.dueAt)) ? new Date(t.dueAt).toLocaleDateString('en-IN') : 'Not recorded'}</td><td>{mk(t.blocker || 'Not recorded')}</td></tr>)}</tbody></table></div>
     {!busy && !error && !matches.length && <p>{tasks.length ? 'No matching tasks. Try another search.' : 'No tasks yet. Add one through chat or the Add task card.'}</p>}
   </section>;
 }

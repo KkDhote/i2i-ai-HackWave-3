@@ -1,6 +1,7 @@
 import VoiceAssistant from './VoiceAssistant.jsx';
 import AddTask from './AddTask.jsx';
 import TaskList from './TaskList.jsx';
+import CalendarWorkspace from './CalendarWorkspace.jsx';
 import NotificationCenter from './NotificationCenter.jsx';
 import { useLayoutEffect, useMemo, useRef, useState, useEffect } from 'react';
 import { api } from './api';
@@ -258,6 +259,7 @@ export default function App() {
           </div>
         </>}
         <TaskList mk={mk} />
+        <CalendarWorkspace key={'calendar-' + clientId} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} demo={demo} />
         <GoalWorkspace />
         <AddTask key={clientId} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} />
         {!data && !err && <p className="sub">Loading workspace...</p>}

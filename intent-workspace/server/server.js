@@ -9,6 +9,7 @@ import taskIntakeRoutes from './taskIntakeRoutes.js';
 import conversationRoutes from './conversationRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import customerReminderRoutes from './customerReminderRoutes.js';
+import calendarRoutes from './calendarRoutes.js';
 import { startNotificationWorker } from './notificationWorker.js';
 
 import { layouts } from './catalog.js';
@@ -31,6 +32,7 @@ app.use(taskIntakeRoutes);
 app.use(conversationRoutes);
 app.use(notificationRoutes);
 app.use(customerReminderRoutes);
+app.use(calendarRoutes);
 
 mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/intent_workspace', { serverSelectionTimeoutMS: 2000 })
   .then(() => console.log('MongoDB connected'))
