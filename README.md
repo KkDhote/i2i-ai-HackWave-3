@@ -1,4 +1,4 @@
-# Intent-to-Interface
+# I2I By AI
 
 ### An AI-powered workspace that adapts to what you want to accomplish
 
