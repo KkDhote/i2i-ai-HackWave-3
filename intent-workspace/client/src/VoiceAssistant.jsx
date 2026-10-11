@@ -7,6 +7,8 @@ import { isTaskRequest, startTaskDialog, advanceTaskDialog, applyTaskIntake } fr
 const welcome = 'Hi! Ask about this client’s tasks, priorities, blockers or goals. To add work, describe the task and I’ll ask useful questions only when needed. Reopen a saved chat to continue earlier discussions. You can type or use the mic.';
 const message = (role, content, extra = {}) => ({ id: crypto.randomUUID(), role, content: content.slice(0, 6000), ...extra });
 export default function VoiceAssistant({ demo, clientId = null, clientName = 'Workspace' }) {
+  const [open, setOpen] = useState(false);
+  const chatVisible = useRef(false), launcher = useRef(null), panel = useRef(null);
   const [question, setQuestion] = useState(''), [messages, setMessages] = useState([]);
   const [lang, setLang] = useState('en-IN'), [listening, setListening] = useState(false);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
@@ -105,8 +107,22 @@ export default function VoiceAssistant({ demo, clientId = null, clientName = 'Wo
     finally { inFlight.current = false; if (mounted.current) setBusy(false); }
   }
   useEffect(() => { window.speechSynthesis?.cancel(); }, [demo]);
-  useEffect(() => { if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight; }, [messages, busy]);
+  useEffect(() => { if (transcript.current) transcript.current.scrollTop = transcript.current.scrollHeight; }, [messages, busy, open]);
+  function closeChat() {
+    chatVisible.current = false; setOpen(false);
+    recognition.current?.abort(); setListening(false); window.speechSynthesis?.cancel();
+    launcher.current?.focus();
+  }
+  useEffect(() => {
+    if (!open) return;
+    const input = document.getElementById('voice-question');
+    (input && !input.disabled ? input : panel.current)?.focus();
+    const escape = event => { if (event.key === 'Escape') { event.preventDefault(); closeChat(); } };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, [open]);
   function speak(text, language = lang) {
+    if (!chatVisible.current) return;
     if (!window.speechSynthesis) { setError('Audio output is unavailable here. Your reply is shown in chat.'); return; }
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(display(text));
@@ -207,14 +223,18 @@ export default function VoiceAssistant({ demo, clientId = null, clientName = 'Wo
     window.speechSynthesis?.cancel(); setError('');
     const mic = new Recognition(); recognition.current = mic;
     mic.lang = lang; mic.interimResults = false; mic.continuous = false;
-    mic.onstart = () => setListening(true);
+    mic.onstart = () => { if (chatVisible.current) setListening(true); else mic.abort(); };
     mic.onend = () => setListening(false);
-    mic.onresult = e => ask(e.results[0][0].transcript);
-    mic.onerror = e => setError(e.error === 'not-allowed' ? 'Allow microphone access in browser settings, or type your message.' : `Voice input failed (${e.error}). You can type instead.`);
+    mic.onresult = e => { if (chatVisible.current) ask(e.results[0][0].transcript); };
+    mic.onerror = e => { if (chatVisible.current) setError(e.error === 'not-allowed' ? 'Allow microphone access in browser settings, or type your message.' : `Voice input failed (${e.error}). You can type instead.`); };
     try { mic.start(); } catch { setError('Could not start the microphone. Try again.'); }
   }
-  return <section className="card voice-assistant workspace-chat" aria-label="Workspace chatbot">
-    <div className="chat-heading"><div><h2>I2I Chat</h2><p className="sub">{display(clientName)} · Type or talk. Continue where you left off.</p></div><button className="chip" disabled={busy || listening || loadingChat} onClick={newChat}>New chat</button></div>
+  return <>
+    <button type="button" className="chat-launcher" ref={launcher} aria-label={open ? 'Hide I2I Chat' : 'Open I2I Chat'} aria-expanded={open} aria-controls="i2i-chat-panel" title="I2I Chat" onClick={() => { if (open) closeChat(); else { chatVisible.current = true; setOpen(true); } }}>
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5Z" /><path d="M8 11h8M8 14h5" /></svg>
+    </button>
+    <section className="card voice-assistant workspace-chat chat-floating-panel" id="i2i-chat-panel" hidden={!open} ref={panel} tabIndex={-1} role="dialog" aria-modal="false" aria-label="I2I Chat">
+    <div className="chat-heading"><div><h2>I2I Chat</h2><p className="sub">{display(clientName)} · Type or talk. Continue where you left off.</p></div><div className="chat-heading-actions"><button className="chip" disabled={busy || listening || loadingChat} onClick={newChat}>New chat</button><button type="button" className="chat-close" aria-label="Close I2I Chat" title="Close chat" onClick={closeChat}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div></div>
     <div className="chat-history-controls"><label htmlFor="saved-chat">Saved chats for {display(clientName)}<select id="saved-chat" value={conversationId || ''} disabled={busy || listening || loadingChat} onChange={e => openConversation(e.target.value)}><option value="" disabled>Choose a saved chat</option>{conversations.map(c => <option key={c.id} value={c.id}>{display(c.title || 'New chat')}</option>)}</select></label><p className="fine">Choose a previous chat to continue it. Change Client in the sidebar to see that client’s history.</p></div>
     {loadingChat && <p role="status" className="fine">Loading saved conversation…</p>}
     {saveError && <p role="alert" className="clar">{saveError} {saveError.startsWith('Saved chats could not load:') ? <button className="chip" disabled={busy || listening || loadingChat} onClick={reloadHistories}>Reload saved chats</button> : <button className="chip" disabled={busy || listening || loadingChat} onClick={retrySaving}>Retry saving</button>}{conversationId && <button className="chip" disabled={busy || listening || loadingChat} onClick={() => openConversation(conversationId)}>Reload saved chat</button>}</p>}
@@ -247,10 +267,6 @@ export default function VoiceAssistant({ demo, clientId = null, clientName = 'Wo
     {listening && <p role="status">Listening… Speak your question.</p>}
     {error && <p role="alert" className="clar">{error}</p>}
     {!Recognition && <p className="fine">Mic input is unavailable here. Open in Chrome, or type your message.</p>}
-    <div className="chat-footer"><p className="fine">Chats and task drafts are saved for the selected client. New tasks are added only after you review and confirm. Long conversations use recent messages and relevant earlier context; ask with a task name if a reference is unclear. Check important AI answers against the records. Voice recognition may use your browser’s online service.</p>
-      <button type="button" className="chat-corner-icon" aria-label="Write a message to I2I" title="Message I2I" disabled={busy || listening || loadingChat} onClick={() => document.getElementById('voice-question')?.focus()}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9H13a8.5 8.5 0 0 1 8 8v.5Z" /><path d="M8 11h8M8 14h5" /></svg>
-      </button>
-    </div>
-  </section>;
+    <div className="chat-footer"><p className="fine">Chats and task drafts are saved for the selected client. New tasks are added only after you review and confirm. Long conversations use recent messages and relevant earlier context; ask with a task name if a reference is unclear. Check important AI answers against the records. Voice recognition may use your browser’s online service.</p></div>
+  </section></>;
 }
