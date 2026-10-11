@@ -1,5 +1,8 @@
 import MentorConsole from './MentorConsole.jsx';
 import VoiceAssistant from './VoiceAssistant.jsx';
+import AddTask from './AddTask.jsx';
+import TaskList from './TaskList.jsx';
+import NotificationCenter from './NotificationCenter.jsx';
 import { useLayoutEffect, useMemo, useRef, useState, useEffect } from 'react';
 import { api } from './api';
 import GoalWorkspace from './GoalWorkspace.jsx';
@@ -154,6 +157,19 @@ export default function App() {
   };
 
   useEffect(() => { ask({ pick: 'home' }); }, []);
+  useEffect(() => {
+    let controller;
+    const refreshTasks = async () => {
+      controller?.abort(); controller = new AbortController();
+      const signal = controller.signal, cid = clientRef.current;
+      try {
+        const fresh = await api.data(cid, signal);
+        if (!signal.aborted && clientRef.current === cid) { dataRef.current = fresh; setData(fresh); }
+      } catch (e) { if (!signal.aborted) setErr('Task saved, but dashboard refresh failed: ' + friendly(e)); }
+    };
+    window.addEventListener('workspace-tasks-changed', refreshTasks);
+    return () => { controller?.abort(); window.removeEventListener('workspace-tasks-changed', refreshTasks); };
+  }, []);
   const submit = (e) => { e.preventDefault(); if (text.trim()) { ask({ text }); setText(''); } };
   const mode = view?.plan.mode;
   const pct = intent ? Math.round(intent.confidence * 100) : 0;
@@ -174,7 +190,7 @@ export default function App() {
         <form onSubmit={submit}>
           <label htmlFor="q">What are you trying to do?</label>
           <div className="ask">
-            <input id="q" value={text} onChange={e => setText(e.target.value)} autoComplete="off" placeholder="e.g. Prepare the Kestrel meeting" />
+            <input id="q" value={text} onChange={e => setText(e.target.value)} autoComplete="off" placeholder="e.g. Prepare the Aarogya meeting" />
             <button className="btn" disabled={busy}>{busy ? '...' : 'Go'}</button>
           </div>
           <div className="chips">{EXAMPLES.map(x => <button type="button" key={x} className="chip" onClick={() => ask({ text: x })}>{x}</button>)}</div>
@@ -185,7 +201,7 @@ export default function App() {
         {shown?.clients && <div><label htmlFor="cl">Client</label>
           <select id="cl" value={clientId} onChange={e => ask({ pick: mode || 'home', clientId: e.target.value })}>
             {shown.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-          <p className="fine">You can also type a client name, like "Kestrel usage".</p></div>}
+          <p className="fine">You can also type a client name, like "Aarogya usage". Company records are fictional Indian demo data.</p></div>}
         {busy && <p className="sub">AI is arranging your screen...</p>}
         {diff && <div className="clar"><b>Preview: {pending.intent.name}</b>
           <p className="fine">Add: {diff.add.map(c => c.def.title).join(', ') || 'nothing'}.<br />Remove: {diff.rem.map(c => c.def.title).join(', ') || 'nothing'}.<br />Keep: {diff.keep} widgets.</p>
@@ -220,6 +236,7 @@ export default function App() {
         <div><h2 className="small">What changed</h2><ol className="log">{log.map((x, i) => <li key={i}>{mk(x)}</li>)}</ol></div>
       </aside>
       <main id="main" tabIndex={-1}>
+        <NotificationCenter demo={demo} />
         <VoiceAssistant demo={demo} />
         {view && shown && <>
           <div className="head">
@@ -241,8 +258,10 @@ export default function App() {
               </div>))}
           </div>
         </>}
+        <TaskList mk={mk} />
         <GoalWorkspace />
         <MentorConsole />
+        <AddTask />
         {!data && !err && <p className="sub">Loading workspace...</p>}
       </main>
       <div className="sr" role="status" aria-live="polite">{announce}</div>

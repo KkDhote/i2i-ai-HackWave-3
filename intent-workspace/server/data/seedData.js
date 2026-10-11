@@ -1,6 +1,7 @@
 // Realistic mock business data for the workspace. Pure function: no database here.
 // All dates are relative to "now", so the demo always looks current (re-run the seed before a demo).
 // Names, companies and numbers are fictional.
+import { localizeDemo } from './indianDemo.js';
 const DAY = 86400000, HOUR = 3600000;
 const ago = (now, days, hours = 0) => new Date(now.getTime() - days * DAY - hours * HOUR);
 const ahead = (now, days) => new Date(now.getTime() + days * DAY);
@@ -100,7 +101,7 @@ function usageFor(c, seedNo) {
   return out;
 }
 
-export function generateSeed(now = new Date()) {
+export function generateSeed(now = new Date(), indian = true) {
   const clients = CLIENTS.map(c => ({
     id: c.id, name: c.name, aliases: c.aliases, plan: c.plan, arr: c.arr, health: c.health,
     renewal: ahead(now, c.renewIn), contacts: c.contacts, talk: c.talk || null
@@ -171,8 +172,9 @@ export function generateSeed(now = new Date()) {
   const sources = Object.entries({ CRM: 2, Analytics: 0.2, 'Support desk': 30, Email: 1, 'Project tool': 5, 'Meeting notes': 72 })
     .map(([source, h]) => ({ source, updatedAt: new Date(now.getTime() - h * HOUR) }));
 
-  return { clients, tickets, comms, meetings, usage, tasks, releases, feed, insights, sources };
+  const seed = { clients, tickets, comms, meetings, usage, tasks, releases, feed, insights, sources };
+  return indian ? localizeDemo(seed) : seed;
 }
 
 // Light client list for intent detection (no database needed)
-export const CLIENT_INDEX = CLIENTS.map(({ id, name, aliases }) => ({ id, name, aliases }));
+export const CLIENT_INDEX = CLIENTS.map(({ id, name, aliases }) => localizeDemo({ id, name, aliases }));

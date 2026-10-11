@@ -5,9 +5,10 @@ import { getDb } from './db.js';
 
 const router = Router();
 const key = task => createHash('sha256').update(JSON.stringify([task.clientId ?? '', task.title ?? '', task.owner ?? ''])).digest('hex').slice(0, 20);
+export { key as taskKey };
 const iso = () => new Date().toISOString();
 const trim = (value, max = 180) => String(value ?? '').trim().slice(0, max);
-function enrich(goal, tasks, now = Date.now()) {
+export function enrich(goal, tasks, now = Date.now()) {
   const linked = goal.taskKeys.map(k => tasks.find(t => key(t) === k)).filter(Boolean);
   const done = linked.filter(t => ['done', 'completed', 'closed'].includes(String(t.status).toLowerCase())).length;
   const overdue = linked.filter(t => !['done', 'completed', 'closed'].includes(String(t.status).toLowerCase()) && Number.isFinite(Date.parse(t.dueAt)) && Date.parse(t.dueAt) < now);
@@ -29,10 +30,29 @@ function enrich(goal, tasks, now = Date.now()) {
     graph: { nodes, edges: linked.map(t => ({ from: goal.id, to: key(t) })) }, alerts };
 }
 const safe = fn => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
+export function parseTask(body) {
+  if (!body || !['title', 'owner', 'dueAt'].every(k => typeof body[k] === 'string' && body[k].trim())) return null;
+  const { priority = 'Medium', status = 'open', blocker = '' } = body;
+  if (!['High', 'Medium', 'Low'].includes(priority) || !['open', 'in_progress', 'blocked', 'done'].includes(status)) return null;
+  if (body.title.length > 180 || body.owner.length > 100 || typeof blocker !== 'string' || blocker.length > 500) return null;
+  const date = new Date(body.dueAt);
+  if (!Number.isFinite(date.getTime()) || date.toISOString() !== body.dueAt || (status === 'blocked' && !blocker.trim())) return null;
+  return { title: body.title.trim(), owner: body.owner.trim(), dueAt: date.toISOString(), priority, status, blocker: blocker.trim() || null, clientId: null };
+}
+router.post('/api/goals/tasks', safe(async (req, res) => {
+  const task = parseTask(req.body);
+  if (!task) return res.status(400).json({ error: 'Provide a title, owner, valid due date, priority and status. Blocked tasks require a blocker reason.' });
+  const db = await getDb();
+  if (await db.collection('iw_tasks').findOne({ title: task.title, owner: task.owner, clientId: null })) return res.status(409).json({ error: 'A task with this title and owner already exists.' });
+  const record = { ...task, createdAt: iso() };
+  await db.collection('iw_tasks').insertOne(record);
+  const { _id, ...saved } = record;
+  res.status(201).json({ ...saved, taskKey: key(task) });
+}));
 router.get('/api/goals/tasks', safe(async (req, res) => {
   const db = await getDb();
-  const tasks = await db.collection('iw_tasks').find({}, { projection: { _id: 0 } }).toArray();
-  res.json(tasks.map(t => ({ taskKey: key(t), title: t.title, owner: t.owner, status: t.status, priority: t.priority, dueAt: t.dueAt, blocker: t.blocker ?? null, clientId: t.clientId ?? null })));
+  const tasks = await db.collection('iw_tasks').find({}, { projection: { _id: 0 } }).sort({ createdAt: -1 }).toArray();
+  res.json(tasks.map(t => ({ taskKey: key(t), title: t.title, owner: t.owner, status: t.status, priority: t.priority, dueAt: t.dueAt, blocker: t.blocker ?? null, clientId: t.clientId ?? null, createdAt: t.createdAt ?? null })));
 }));
 router.get('/api/goals', safe(async (req, res) => {
   const db = await getDb();

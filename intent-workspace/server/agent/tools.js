@@ -1,6 +1,7 @@
 // The agent's "senses": small read-only tools over the workspace data. Each returns { summary, data }.
 // `summary` is one evidence sentence (shown in the investigation trace); `data` is what the layout step reads.
 import { detectDrop, mean } from '../data/payload.js';
+import { isTaskOpen } from '../taskStatus.js';
 
 const DAY = 86400000;
 const ms = d => new Date(d).getTime();
@@ -54,14 +55,14 @@ export function riskOf(src, c, now) {
   if (high.length) { score += Math.min(2, high.length); reasons.push(`${high.length} high-priority issue${high.length > 1 ? 's' : ''} open`); }
   const bad = src.comms.filter(m => m.clientId === c.id && m.tone === 'bad' && daysAgo(m.at, now) <= 7).length;
   if (bad) { score += 1; reasons.push('escalation this week'); }
-  return { id: c.id, name: c.name, score, reasons, health: c.health, arrK: c.arr, renewsInDays: renew };
+  return { id: c.id, name: c.name, score, reasons, health: c.health, arrLakhINR: c.arr, renewsInDays: renew };
 }
 
 export const TOOLS = {
   list_clients: {
     desc: 'All clients with plan, ARR, health score and days to renewal. No args.', args: '{}',
     run: (src, a, now) => {
-      const data = src.clients.map(c => ({ id: c.id, name: c.name, plan: c.plan, arrK: c.arr, health: c.health, renewsInDays: daysUntil(c.renewal, now) }));
+      const data = src.clients.map(c => ({ id: c.id, name: c.name, plan: c.plan, arrLakhINR: c.arr, health: c.health, renewsInDays: daysUntil(c.renewal, now) }));
       return { summary: `${data.length} clients, ${data.filter(c => c.health < 65).length} with health below 65`, data };
     }
   },
@@ -74,7 +75,7 @@ export const TOOLS = {
       const high = tix.filter(t => t.severity === 'High').length;
       return {
         summary: `${c.name}: health ${c.health}/100, ${high} high-priority issue${high === 1 ? '' : 's'}, renews in ${daysUntil(c.renewal, now)} days, active users ${sgn(u.changePct)}`,
-        data: { client: { id: c.id, name: c.name, plan: c.plan, arrK: c.arr, health: c.health, renewsInDays: daysUntil(c.renewal, now), contacts: c.contacts }, openTickets: tix, recentComms: comms,
+        data: { client: { id: c.id, name: c.name, plan: c.plan, arrLakhINR: c.arr, health: c.health, renewsInDays: daysUntil(c.renewal, now), contacts: c.contacts }, openTickets: tix, recentComms: comms,
           lastMeeting: mt ? { daysAgo: daysAgo(mt.at, now), notes: mt.notes } : null, usage: { changePct: u.changePct, significantDrop: u.significant } }
       };
     }
@@ -101,7 +102,7 @@ export const TOOLS = {
   get_overdue_work: {
     desc: 'Overdue project tasks, blockers, and near-term workload per owner. No args.', args: '{}',
     run: (src, a, now) => {
-      const open = src.tasks.filter(t => t.status === 'open');
+      const open = src.tasks.filter(isTaskOpen);
       const over = open.filter(t => ms(t.dueAt) < now.getTime()).map(t => ({ task: t.title, owner: t.owner, daysLate: Math.max(1, daysAgo(t.dueAt, now)), priority: t.priority, blocker: t.blocker })).sort((x, y) => y.daysLate - x.daysLate);
       const near = open.filter(t => ms(t.dueAt) <= now.getTime() + 7 * DAY);
       const owners = [...new Set(src.tasks.map(t => t.owner))].map(o => ({ owner: o, tasks: near.filter(t => t.owner === o).length })).filter(x => x.tasks).sort((x, y) => y.tasks - x.tasks);
@@ -114,7 +115,7 @@ export const TOOLS = {
   compare_clients: {
     desc: 'Side-by-side comparison of two clients (health, ARR, renewal, usage change, open high issues, ticket trend).', args: '{"a":"id","b":"id"}',
     run: (src, a, now) => {
-      const row = c => ({ name: c.name, health: c.health, arrK: c.arr, renewsInDays: daysUntil(c.renewal, now), usageChangePct: usageStats(src, c.id).changePct, openHighIssues: openTickets(src, c.id, now).filter(t => t.severity === 'High').length, ticketsThisWeek: ticketTrend(src, c.id, now).thisWeek });
+      const row = c => ({ name: c.name, health: c.health, arrLakhINR: c.arr, renewsInDays: daysUntil(c.renewal, now), usageChangePct: usageStats(src, c.id, now).changePct, openHighIssues: openTickets(src, c.id, now).filter(t => t.severity === 'High').length, ticketsThisWeek: ticketTrend(src, c.id, now).thisWeek });
       const A = row(need(src, a.a)), B = row(need(src, a.b));
       return { summary: `${A.name} vs ${B.name}: health ${A.health} vs ${B.health}, usage ${sgn(A.usageChangePct)} vs ${sgn(B.usageChangePct)}`, data: { a: A, b: B } };
     }
@@ -148,7 +149,7 @@ export function buildBriefing(src, now = new Date()) {
   src.clients.forEach(c => { const u = usageStats(src, c.id); if (u.significant) items.push({ kind: 'usage', tone: 'bad', title: `${c.name}: active users ${sgn(u.changePct)}`, detail: `drop starts on day ${u.dropDay}, export success ${u.exportBase}% to ${u.exportNow}%`, goal: `Investigate why ${short(c)} usage dropped`, score: 5 }); });
   const w = TOOLS.get_overdue_work.run(src, {}, now).data;
   if (w.overdueCount) items.push({ kind: 'work', tone: w.overdue.some(t => t.blocker) ? 'warn' : 'n', title: `${w.overdueCount} overdue tasks`, detail: `average ${w.avgDaysLate} days late, ${w.overdue.filter(t => t.blocker).length} blocked`, goal: 'Review overdue project work', score: 3 });
-  src.clients.filter(c => daysUntil(c.renewal, now) <= 45 && !risks.some(r => r.id === c.id)).forEach(c => items.push({ kind: 'renewal', tone: 'warn', title: `${c.name} renews in ${daysUntil(c.renewal, now)} days`, detail: `${c.plan}, $${c.arr}k ARR, health ${c.health}/100`, goal: `Prepare the ${short(c)} meeting`, score: 2 }));
+  src.clients.filter(c => daysUntil(c.renewal, now) <= 45 && !risks.some(r => r.id === c.id)).forEach(c => items.push({ kind: 'renewal', tone: 'warn', title: `${c.name} renews in ${daysUntil(c.renewal, now)} days`, detail: `${c.plan}, ₹${Number(c.arr).toLocaleString('en-IN')} lakh annual revenue, health ${c.health}/100`, goal: `Prepare the ${short(c)} meeting`, score: 2 }));
   items.sort((a, b) => b.score - a.score);
   return { generatedAt: now.toISOString(), items: items.slice(0, 6) };
 }

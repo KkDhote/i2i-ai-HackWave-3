@@ -1,5 +1,6 @@
 // Turns raw collections into the exact JSON shape the frontend already reads from /api/data.
 // Pure function (no database), so it is easy to test.
+import { isTaskOpen } from '../taskStatus.js';
 const DAY = 86400000, HOUR = 3600000;
 const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -65,7 +66,7 @@ export function buildPayload(src, clientId, now = new Date()) {
   const tD = pct(tNow, tPrev);
 
   // ---- tasks ----
-  const open = tasks.filter(t => t.status === 'open');
+  const open = tasks.filter(isTaskOpen);
   const overdue = open.filter(t => time(t.dueAt) < now.getTime()).map(t => ({ ...t, days: Math.max(1, Math.round((now.getTime() - time(t.dueAt)) / DAY)) })).sort((a, b) => b.days - a.days);
   const dueWeek = open.filter(t => time(t.dueAt) >= now.getTime() && time(t.dueAt) <= now.getTime() + 7 * DAY);
   const owners = [...new Set(tasks.map(t => t.owner))];
@@ -118,7 +119,7 @@ export function buildPayload(src, clientId, now = new Date()) {
         { label: 'Overdue', value: String(overdue.length), delta: 'tasks', tone: overdue.length ? 'dn' : 'up' },
         { label: 'Avg days late', value: overdue.length ? (Math.round(mean(overdue.map(t => t.days)) * 10) / 10).toFixed(1) : '0', delta: 'days', tone: overdue.length ? 'dn' : 'up' },
         { label: 'Due this week', value: String(dueWeek.length) },
-        { label: 'On track', value: Math.round(((open.length - overdue.length - blocked.filter(t => !overdue.includes(t)).length) / Math.max(1, open.length)) * 100) + '%', delta: 'of open tasks', tone: 'up' }
+        { label: 'On track', value: Math.round((open.filter(t => !t.blocker && time(t.dueAt) >= now.getTime()).length / Math.max(1, open.length)) * 100) + '%', delta: 'of open tasks', tone: 'up' }
       ]
     },
     actions: {
@@ -136,7 +137,7 @@ export function buildPayload(src, clientId, now = new Date()) {
     accts: [...clients].sort((a, b) => a.health - b.health).slice(0, 5).map(c => ({ account: c.name, plan: c.plan, health: c.health, healthTone: healthTone(c.health) })),
     feed: [...feed].sort((a, b) => time(b.at) - time(a.at)).slice(0, 6).map(f => ({ text: f.text })),
     client: [
-      { tag: `Health ${client.health}/100`, tone: healthTone(client.health), text: `${client.name}, ${client.plan}, $${client.arr}k ARR, renews ${MON[renewal.getUTCMonth()]} ${renewal.getUTCDate()}` },
+      { tag: `Health ${client.health}/100`, tone: healthTone(client.health), text: `${client.name}, ${client.plan}, ₹${Number(client.arr).toLocaleString('en-IN')} lakh annual revenue, renews ${renewal.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata' })}` },
       { tag: 'Contacts', tone: 'n', text: client.contacts.map(c => `${c.name} (${c.role})`).join(', ') }
     ],
     comms: comms.filter(c => c.clientId === cid).sort((a, b) => time(b.at) - time(a.at)).slice(0, 4).map(c => ({ tag: relTag(c.at, now), tone: c.tone, text: c.text })),

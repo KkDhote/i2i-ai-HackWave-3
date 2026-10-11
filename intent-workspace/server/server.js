@@ -4,6 +4,10 @@ import express from 'express';
 import cors from 'cors';
 import mongoose from 'mongoose';
 import goalsRoutes from './goalsRoutes.js';
+import chatRoutes from './chatRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
+import customerReminderRoutes from './customerReminderRoutes.js';
+import { startNotificationWorker } from './notificationWorker.js';
 
 import { layouts } from './catalog.js';
 import { decide, patchByRules, detectClient } from './intent.js';
@@ -20,6 +24,9 @@ app.use(express.json());
 app.use(mentorRoutes);
 app.use(goalsRoutes);
 app.use(dataRoutes);
+app.use(chatRoutes);
+app.use(notificationRoutes);
+app.use(customerReminderRoutes);
 
 mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/intent_workspace', { serverSelectionTimeoutMS: 2000 })
   .then(() => console.log('MongoDB connected'))
@@ -63,5 +70,6 @@ app.get('/api/eval', async (req, res) => res.json(await runEval(req.query.mode =
 const port = process.env.PORT || 5001;
 app.listen(port, () => {
   console.log('Server on http://localhost:' + port);
+  startNotificationWorker();
   if (process.env.NVIDIA_API_KEY) WARM.forEach(t => planWithLLM(t, null).catch(() => {}));  // pre-warm: demo prompts answer instantly
 });

@@ -15,7 +15,12 @@ const WORD = { bad: 'Urgent', warn: 'Watch', n: 'Info' };
 
 export default function Briefing({ onGo, mk = s => s }) {
   const [b, setB] = useState(null);
-  useEffect(() => { load().then(setB); }, []);
+  useEffect(() => {
+    let active = true, revision = 0;
+    const refresh = async () => { const current = ++revision; const next = await load(); if (active && current === revision) setB(next); };
+    refresh(); window.addEventListener('workspace-tasks-changed', refresh);
+    return () => { active = false; window.removeEventListener('workspace-tasks-changed', refresh); };
+  }, []);
   if (!b?.items?.length) return null;
   return (
     <section className="brief" aria-labelledby="brief-h">

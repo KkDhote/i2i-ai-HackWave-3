@@ -6,7 +6,7 @@ export default function MentorConsole(){
  const [report,setReport]=useState(null),[goals,setGoals]=useState([]),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [goalId,setGoalId]=useState(''),[decision,setDecision]=useState('note'),[rationale,setRationale]=useState(''),[action,setAction]=useState(''),[preview,setPreview]=useState(''),[extra,setExtra]=useState(1),[scenario,setScenario]=useState(null),[handoff,setHandoff]=useState(null),[evalData,setEvalData]=useState(null);
  const refresh=useCallback(async()=>{try{const [a,b]=await Promise.all([api('/api/mentor/status'),api('/api/goals')]);setReport(a);setGoals(b);setError('')}catch(e){setError(e.message)}},[]);
- useEffect(()=>{refresh();const t=setInterval(refresh,30000);return()=>clearInterval(t)},[refresh]);
+ useEffect(()=>{refresh();const t=setInterval(refresh,30000);window.addEventListener('workspace-tasks-changed',refresh);return()=>{clearInterval(t);window.removeEventListener('workspace-tasks-changed',refresh)}},[refresh]);
  const post=async(path,body,method='POST')=>{try{await api(path,{method,body:JSON.stringify(body)});setMessage('Saved successfully');await refresh()}catch(e){setError(e.message)}};
  const download=async()=>{try{const d=await api('/api/mentor/handoff');setHandoff(d);const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='team-handoff.json';a.click();URL.revokeObjectURL(u)}catch(e){setError(e.message)}};
  return <section className="mentor-console" aria-label="Trust and execution console">

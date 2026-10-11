@@ -12,28 +12,28 @@ export default function GoalWorkspace() {
     try { const [gs, ts] = await Promise.all([api('/api/goals'), api('/api/goals/tasks')]); setGoals(gs); setTasks(ts); setError(''); }
     catch (e) { setError(e.message); }
   }
-  useEffect(() => { refresh(); const timer = setInterval(refresh, 30000); return () => clearInterval(timer); }, []);
+  useEffect(() => { refresh(); const timer = setInterval(refresh, 30000); window.addEventListener('workspace-tasks-changed', refresh); return () => { clearInterval(timer); window.removeEventListener('workspace-tasks-changed', refresh); }; }, []);
   async function create(e) {
     e.preventDefault();
-    try { await api('/api/goals', { method: 'POST', body: JSON.stringify({ title, taskKeys: selected }) }); setTitle(''); setSelected([]); await refresh(); }
+    try { await api('/api/goals', { method: 'POST', body: JSON.stringify({ title, taskKeys: selected }) }); setTitle(''); setSelected([]); window.dispatchEvent(new Event('workspace-goals-changed')); await refresh(); }
     catch (e) { setError(e.message); }
   }
   async function mark(goal, status) {
-    try { await api(`/api/goals/${encodeURIComponent(goal.id)}`, { method: 'PATCH', body: JSON.stringify({ status }) }); await refresh(); }
+    try { await api(`/api/goals/${encodeURIComponent(goal.id)}`, { method: 'PATCH', body: JSON.stringify({ status }) }); window.dispatchEvent(new Event('workspace-goals-changed')); await refresh(); }
     catch (e) { setError(e.message); }
   }
-  return <section className="goal-workspace" aria-label="Live goal workspace">
+  return <section className="goal-workspace" id="workspace-goals" aria-label="Live goal workspace">
     <h2>Live Goal Graph & Gap Radar</h2>
     <p>Goals persist in MongoDB. Progress and risks are derived from existing project tasks (refreshes every 30 seconds).</p>
     {error && <p role="alert" className="goal-error">{error}</p>}
     <form onSubmit={create} className="goal-create">
-      <input required maxLength={180} aria-label="Goal title" placeholder="New goal: Restore Kestrel usage" value={title} onChange={e => setTitle(e.target.value)} />
+      <input required maxLength={180} aria-label="Goal title" placeholder="New goal: Complete Diwali sale readiness" value={title} onChange={e => setTitle(e.target.value)} />
       <label>Link existing tasks <select aria-label="Link existing tasks" multiple size={Math.min(6, Math.max(tasks.length, 2))} value={selected} onChange={e => setSelected([...e.target.selectedOptions].map(o => o.value))}>
         {tasks.map(t => <option key={t.taskKey} value={t.taskKey}>{t.title} — {t.owner}</option>)}
       </select></label>
       <button type="submit">Save goal plan</button>
     </form>
-    <div className="goal-list">{goals.map(g => <article key={g.id} className="goal-card">
+    <div className="goal-list">{goals.map(g => <article key={g.id} className="goal-card" id={`goal-${g.id}`}>
       <header><h3>{g.title}</h3><span>{g.status} · {g.progress}% complete</span></header>
       <progress max="100" value={g.progress} aria-label={`${g.title} progress`} />
       <p>{g.completedTasks} of {g.totalTasks} tasks completed</p>

@@ -1,0 +1,18 @@
+.customer-reminders{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;color:var(--ink)}
+.customer-reminders>summary{color:var(--acc);font-size:15px}.customer-reminders[open]>summary{margin-bottom:8px}
+.reminder-channel-status{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.reminder-channel{display:grid;gap:2px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font-size:12px;color:var(--mute)}
+.reminder-channel b{color:var(--ink)}.reminder-channel.configured{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.customer-reminders form>fieldset{border:0;padding:0;margin:12px 0 0;min-width:0}
+.customer-reminders form>fieldset>label{display:block}.customer-reminders select{margin-bottom:12px}
+.reminder-contact-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.reminder-contact-fields label{display:flex;flex-direction:column;gap:5px}
+.reminder-contact-fields input{width:100%;min-width:0;padding:9px;border:1.5px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+.reminder-contact-fields small{font-weight:400;color:var(--mute);font-size:12px}
+.customer-reminders .reminder-channel-options{display:flex;flex-wrap:wrap;gap:8px 18px;border:1px solid var(--line);padding:10px 12px;border-radius:8px;margin:14px 0;min-width:0}
+.reminder-channel-options legend{font-size:13px;font-weight:600;padding:0 4px}.reminder-channel-options label,.customer-reminders .reminder-enabled{display:flex;align-items:center;gap:7px;font-weight:400}
+.reminder-channel-options input,.reminder-enabled input{accent-color:var(--acc)}.customer-reminders .reminder-enabled{margin:10px 0}
+.reminder-preview p{margin:5px 0}.reminder-preview small{color:var(--mute)}.reminder-save{margin-top:12px}
+.customer-reminders :disabled{opacity:.65}.customer-reminders button:disabled{cursor:not-allowed}
+.reminder-deliveries{margin-top:14px}.reminder-deliveries h3{font-size:14px}.reminder-deliveries ul{padding:0;list-style:none;margin:8px 0}
+.reminder-deliveries li{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:12px}.reminder-deliveries li small{width:100%;color:var(--warn)}
+@media(max-width:700px){.reminder-contact-fields{grid-template-columns:1fr}.reminder-save{width:100%}}
