@@ -34,6 +34,8 @@ Keep credentials and the encryption key out of Git. Keep the same encryption key
 
 Open the workspace at http://127.0.0.1:5173/ and select Connect Google Calendar. Complete Google's consent yourself. The permission is calendar.app.created: the app creates a separate I2I By AI calendar, rather than requesting access to all personal calendars. A single Google connection is shared by this local demo's clients. Integration routes are restricted to loopback requests; this is not a multi-user, production authentication system.
 
+After connecting, localhost and 127.0.0.1 are both supported on the configured app port for saving and syncing entries. Connect Google Calendar first moves to the configured workspace address if necessary, so the OAuth state cookie uses the registered callback's hostname. GOOGLE_CALENDAR_APP_URL and GOOGLE_CALENDAR_REDIRECT_URI must use the same hostname. Other origins and unconfigured ports remain blocked.
+
 ## Sync and meetings
 
 Saving an entry stores it locally. Select its Sync to Google button to copy its title, details, date/time and location to the connected calendar. Sync is manual and one-way. Later changes require Update / check Google; changes made in Google do not update workspace tasks. Stable event IDs avoid duplicate entries on retries. Entries deleted in Google are not silently recreated. Disconnect removes local tokens but retains Google events; remove account permission in Google Account settings if desired.

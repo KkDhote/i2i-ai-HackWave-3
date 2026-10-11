@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import express from 'express';
 import { randomBytes } from 'node:crypto';
 import { createCalendarRouter } from './calendarRoutes.js';
-import { parseCalendarEntry, googleEvent, eventId, taskEntries, mapUrl, sealTokens, openTokens, calendarConfig, calendarScope, calendarFailureReason } from './calendar.js';
+import { parseCalendarEntry, googleEvent, eventId, taskEntries, mapUrl, sealTokens, openTokens, calendarConfig, calendarOrigins, calendarScope, calendarFailureReason } from './calendar.js';
 import { taskKey } from './goalsRoutes.js';
 
 const meeting = { id: 'meeting-1', title: 'Pune review', kind: 'meeting', date: '2026-10-15', time: '14:30', endTime: '15:15', meet: true, location: 'Baner, Pune', description: 'Review launch', clientId: 'northwind' };
@@ -33,6 +33,10 @@ test('deadline and actual completion dates are separate; tokens are encrypted', 
   assert.throws(() => openTokens(encrypted, randomBytes(32)));
   assert.equal(calendarConfig({}).configured, false);
   assert.equal(calendarConfig({ GOOGLE_CLIENT_ID: 'fake', GOOGLE_CLIENT_SECRET: 'fake', GOOGLE_CALENDAR_TOKEN_KEY: key.toString('base64'), GOOGLE_CALENDAR_APP_URL: 'https://remote.example/' }).configured, false);
+  assert.equal(calendarConfig({ GOOGLE_CLIENT_ID: 'fake', GOOGLE_CLIENT_SECRET: 'fake', GOOGLE_CALENDAR_TOKEN_KEY: key.toString('base64'), GOOGLE_CALENDAR_APP_URL: 'http://localhost:5173/' }).configured, false);
+  const origins = calendarOrigins(calendarConfig({}));
+  assert.ok(origins.has('http://localhost:5173')); assert.ok(origins.has('http://127.0.0.1:5173')); assert.ok(origins.has('http://[::1]:5173'));
+  assert.ok(!origins.has('http://localhost:5174') && !origins.has('https://localhost:5173'));
 });
 test('connection failures expose only safe actionable categories', () => {
   assert.equal(calendarFailureReason({ googleReason: 'accessNotConfigured' }, 'calendar'), 'api_disabled');
@@ -70,6 +74,10 @@ test('local OAuth, isolated client entries, idempotent sync and Meet pending/suc
   const call = (path, body, headers = {}) => fetch(base + '/api/calendar/' + path, { method: body === undefined ? 'GET' : 'POST', headers: { Origin: 'http://127.0.0.1:5173', 'Content-Type': 'application/json', ...headers }, ...(body === undefined ? {} : { body: JSON.stringify(body) }), redirect: 'manual' });
   try {
     assert.equal((await call('connect', {}, { Origin: 'https://untrusted.example' })).status, 403);
+    assert.equal((await call('connect', {}, { Origin: 'http://localhost:5174' })).status, 403);
+    const aliasConnect = await call('connect', {}, { Origin: 'http://localhost:5173' });
+    assert.equal(aliasConnect.status, 409); assert.equal(aliasConnect.headers.get('set-cookie'), null);
+    assert.equal((await call('status', undefined, { Origin: 'http://localhost:5173' })).status, 200);
     const failedConnect = await call('connect', {}), failedState = new URL((await failedConnect.json()).url).searchParams.get('state');
     const failed = await call(`oauth/callback?state=${failedState}&code=fake`, undefined, { Cookie: failedConnect.headers.get('set-cookie').split(';')[0] });
     assert.equal(failed.status, 302); assert.match(failed.headers.get('location'), /calendarReason=api_disabled/);
@@ -81,10 +89,12 @@ test('local OAuth, isolated client entries, idempotent sync and Meet pending/suc
     const callback = await call(`oauth/callback?state=${state}&code=fake`, undefined, { Cookie: connect.headers.get('set-cookie').split(';')[0] });
     assert.equal(callback.status, 302); assert.ok(rows.iw_calendar_connection[0].tokens); assert.ok(!rows.iw_calendar_connection[0].tokens.includes('fake-access'));
     assert.equal((await call(`oauth/callback?state=${state}&code=fake`, undefined, { Cookie: connect.headers.get('set-cookie').split(';')[0] })).status, 400);
-    const saved = await (await call('entries', { ...meeting, taskKey: taskKey(task) })).json();
+    const savedResponse = await call('entries', { ...meeting, taskKey: taskKey(task) }, { Origin: 'http://localhost:5173' });
+    assert.equal(savedResponse.status, 201);
+    const saved = await savedResponse.json();
     assert.equal((await call('entries', { ...meeting, clientId: 'kestrel', taskKey: taskKey(task) })).status, 400);
     assert.equal((await (await call('entries?clientId=kestrel')).json()).length, 0);
-    const sync = await (await call('sync?clientId=northwind', { ids: [saved.id] })).json();
+    const sync = await (await call('sync?clientId=northwind', { ids: [saved.id] }, { Origin: 'http://localhost:5173' })).json();
     assert.equal(sync.results[0].meetState, 'pending'); assert.equal(sync.results[0].meetUrl, null);
     pending = false;
     const updated = await (await call('sync?clientId=northwind', { ids: [saved.id] })).json();

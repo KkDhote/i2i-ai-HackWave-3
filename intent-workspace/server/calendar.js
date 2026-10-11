@@ -50,8 +50,19 @@ export function calendarConfig(env) {
   const redirect = env.GOOGLE_CALENDAR_REDIRECT_URI || 'http://127.0.0.1:5173/api/calendar/oauth/callback';
   const frontend = env.GOOGLE_CALENDAR_APP_URL || 'http://127.0.0.1:5173/';
   let local = false;
-  try { local = [new URL(redirect), new URL(frontend)].every(u => u.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)); } catch {}
+  try { local = [new URL(redirect), new URL(frontend)].every(u => u.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(u.hostname)) && new URL(redirect).hostname === new URL(frontend).hostname; } catch {}
   return { configured: !!env.GOOGLE_CLIENT_ID?.trim() && !!env.GOOGLE_CLIENT_SECRET?.trim() && key.length === 32 && local, key, redirect, frontend };
+}
+export function calendarOrigins(config) {
+  const allowed = new Set();
+  for (const value of [config.frontend, config.redirect]) {
+    try {
+      const url = new URL(value);
+      if (url.protocol !== 'http:' || !['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)) continue;
+      for (const host of ['localhost', '127.0.0.1', '[::1]']) { const alias = new URL(url); alias.hostname = host; allowed.add(alias.origin); }
+    } catch {}
+  }
+  return allowed;
 }
 export function sealTokens(tokens, key) {
   const iv = randomBytes(12), cipher = createCipheriv('aes-256-gcm', key, iv);

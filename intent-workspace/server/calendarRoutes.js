@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { randomBytes, createHash } from 'node:crypto';
 import { getDb } from './db.js';
 import { taskKey } from './goalsRoutes.js';
-import { calendarConfig, calendarScope, calendarFailureReason, parseCalendarEntry, newEntry, taskEntries, googleEvent, eventId, sealTokens, openTokens, mapUrl } from './calendar.js';
+import { calendarConfig, calendarOrigins, calendarScope, calendarFailureReason, parseCalendarEntry, newEntry, taskEntries, googleEvent, eventId, sealTokens, openTokens, mapUrl } from './calendar.js';
 
 export function createCalendarRouter({ getDatabase = getDb, env = process.env, fetchImpl = fetch } = {}) {
   const router = Router(), states = new Map();
@@ -15,7 +15,7 @@ export function createCalendarRouter({ getDatabase = getDb, env = process.env, f
     if (!['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress) || !['localhost', '127.0.0.1', '[::1]'].includes(req.hostname)) return res.status(403).json({ error: 'Calendar integration is available only on this computer.' });
     if (req.method !== 'GET' || req.get('origin')) {
       let origin; try { origin = new URL(req.get('origin') || '').origin; } catch {}
-      const allowed = new Set([new URL(config().frontend).origin, new URL(config().redirect).origin]);
+      const allowed = calendarOrigins(config());
       if (!origin || !allowed.has(origin)) return res.status(403).json({ error: 'Open the configured workspace address to use Calendar.' });
     }
     res.set('Cache-Control', 'no-store'); next();
@@ -55,7 +55,7 @@ export function createCalendarRouter({ getDatabase = getDb, env = process.env, f
   }
   router.get('/api/calendar/status', safe(async (_req, res) => {
     const db = await getDatabase(), record = await db.collection('iw_calendar_connection').findOne({ _id: 'workspace' });
-    res.json({ configured: config().configured, connected: config().configured && !!record?.tokens && !!record?.calendarId, calendarName: record?.calendarId ? 'I2I By AI' : null });
+    res.json({ configured: config().configured, connected: config().configured && !!record?.tokens && !!record?.calendarId, calendarName: record?.calendarId ? 'I2I By AI' : null, workspaceUrl: config().configured ? config().frontend : null });
   }));
   router.get('/api/calendar/entries', safe(async (req, res) => res.json(await entries(await getDatabase(), client(req)))));
   router.post('/api/calendar/entries', safe(async (req, res) => {
@@ -69,8 +69,9 @@ export function createCalendarRouter({ getDatabase = getDb, env = process.env, f
     const entry = newEntry(parsed); await db.collection('iw_calendar_entries').insertOne({ ...entry });
     res.status(201).json(entry);
   }));
-  router.post('/api/calendar/connect', safe(async (_req, res) => {
+  router.post('/api/calendar/connect', safe(async (req, res) => {
     if (!config().configured) throw failure('Configure Google Calendar credentials in the backend first.', 409);
+    if (new URL(req.get('origin')).origin !== new URL(config().frontend).origin) throw failure('Start Google sign-in from the configured workspace address.', 409);
     for (const [key, value] of states) if (value.expires < Date.now()) states.delete(key);
     if (states.size > 20) throw failure('Too many connection attempts. Wait a few minutes.', 429);
     const state = randomBytes(32).toString('hex'), verifier = randomBytes(48).toString('base64url');
