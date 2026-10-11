@@ -30,7 +30,7 @@ export const layouts = {
     { id: 'feed', span: 5, reason: 'Latest events across your work.' },
     { id: 'accts', span: 7, reason: 'All accounts at a glance.' },
     { id: 'actions', span: 5, reason: 'Generic shortcuts.' }] },
-  meeting: { name: 'Prepare a client meeting', title: 'Prepare for tomorrow: {client}', desc: 'Everything you need to walk in informed, in the order you will use it.',
+  meeting: { name: 'Prepare a client meeting', title: 'Prepare a client meeting: {client}', desc: 'Everything you need to walk in informed, in the order you will use it.',
     keywords: ['prepare', 'prep', 'meeting', 'client', 'tomorrow', 'call', 'customer', 'talking', 'agenda'], components: [
     { id: 'client', span: 7, reason: 'You need context on who the client is before anything else.' },
     { id: 'issues', span: 5, reason: 'Open issues are what the client is most likely to raise.' },
@@ -38,7 +38,7 @@ export const layouts = {
     { id: 'meeting', span: 6, reason: 'Last meeting commitments should be followed up on.' },
     { id: 'talk', span: 7, reason: 'Built from the open issues and last-meeting notes.' },
     { id: 'actions', span: 5, reason: 'Actions you are likely to take before the meeting.' }] },
-  usage: { name: 'Investigate a usage drop', title: 'Investigate the drop in active users', desc: 'Locate the drop, see where it concentrates, and test likely causes.',
+  usage: { name: 'Review usage and investigate changes', title: 'Usage trends: {client}', desc: 'Track active users, locate changes, and explore possible causes.',
     keywords: ['usage', 'drop', 'decline', 'dip', 'fall', 'investigate', 'churn', 'down', 'engagement', 'why', 'fewer'], components: [
     { id: 'kpis', span: 12, reason: 'Quantifies how big the drop is across related metrics.' },
     { id: 'usage', span: 7, reason: 'The trend shows when the drop started; the band marks it.' },
@@ -56,6 +56,19 @@ export const layouts = {
 };
 
 export const TASKS = ['meeting', 'usage', 'overdue'];
+// Focused quick actions reuse the same client records and existing widgets.
+layouts.issues = { name: 'Review client issues', title: 'Open issues: {client}', desc: 'Review reported issues alongside the client context and recent messages.', components: [
+  { id: 'issues', span: 7, reason: 'Start with the selected client\'s open issues, highest severity first.' },
+  { id: 'client', span: 5, reason: 'Keep the client contacts and account context close to the issues.' },
+  { id: 'comms', span: 12, reason: 'Recent client messages provide context for the reported issues.' }] };
+layouts.followups = { name: 'Follow up on commitments', title: 'Meeting follow-ups: {client}', desc: 'Revisit recorded meeting notes and prepare the next conversation.', components: [
+  { id: 'meeting', span: 7, reason: 'The last meeting records commitments and open follow-ups.' },
+  { id: 'talk', span: 5, reason: 'Use the client\'s talking points to prepare the follow-up.' },
+  { id: 'comms', span: 12, reason: 'Check what the client has said since the last meeting.' }] };
+layouts.updates = { name: 'Read client updates', title: 'Recent messages: {client}', desc: 'Catch up on the selected client\'s latest communication and open concerns.', components: [
+  { id: 'comms', span: 7, reason: 'Lead with the selected client\'s most recent messages.' },
+  { id: 'client', span: 5, reason: 'Identify the client contacts and account context.' },
+  { id: 'issues', span: 12, reason: 'Read open issues alongside the recent conversation.' }] };
 // For the fixed-dashboard comparison: every widget, same order, whatever the goal.
 layouts.fixed = { name: 'Fixed dashboard (comparison)', title: 'Fixed dashboard', desc: 'Every widget, in the same order for every goal. This is what the adaptive screen replaces.',
   components: Object.keys(catalog).map(id => ({ id, span: id === 'kpis' ? 12 : 6, reason: 'Always shown, whatever your goal.' })) };

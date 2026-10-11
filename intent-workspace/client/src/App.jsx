@@ -13,8 +13,8 @@ import AgentPanel from './AgentPanel.jsx';
 import Briefing from './Briefing.jsx';
 import './agent.css';
 import { maskDeep, maskText } from './lib.js';
+import { quickActionsFor } from './clientQuickActions.js';
 
-const EXAMPLES = ["Prepare for tomorrow's client meeting", 'Investigate why active users dropped', 'Review overdue project work', 'Client usage'];
 const REFINE = ['Also show overdue tasks', 'Also show open issues', 'Remove next actions'];
 // Animation timing in one place: tune here.
 const T = { move: 700, enter: 620, stagger: 90, enterDelay: 280, glow: 2600 };
@@ -175,6 +175,7 @@ export default function App() {
   const pct = intent ? Math.round(intent.confidence * 100) : 0;
   const shown = useMemo(() => (demo && data ? maskDeep(data) : data), [data, demo]);
   const mk = (s) => (demo ? maskText(s) : s);
+  const selectedClient = data?.clients?.find(c => c.id === clientId)?.name || clientId;
 
   // What would change if you accepted the pending screen?
   const diff = pending && view && (() => {
@@ -193,13 +194,14 @@ export default function App() {
             <input id="q" value={text} onChange={e => setText(e.target.value)} autoComplete="off" placeholder="e.g. Prepare the Aarogya meeting" />
             <button className="btn" disabled={busy}>{busy ? '...' : 'Go'}</button>
           </div>
-          <div className="chips">{EXAMPLES.map(x => <button type="button" key={x} className="chip" onClick={() => ask({ text: x })}>{x}</button>)}</div>
+          <p className="fine">Quick actions for {mk(selectedClient)}</p>
+          <div className="chips" aria-label={'Quick actions for ' + mk(selectedClient)}>{quickActionsFor(clientId).map(action => <button type="button" key={action.pick} className="chip" disabled={busy} onClick={() => ask({ pick: action.pick, clientId })}>{mk(action.label)}</button>)}</div>
           {mode && mode !== 'home' && mode !== 'fixed' && <>
             <label style={{ display: 'block', marginTop: 12 }}>Refine this screen</label>
-            <div className="chips">{REFINE.map(x => <button type="button" key={x} className="chip" onClick={() => ask({ text: x })}>{x}</button>)}</div></>}
+            <div className="chips">{REFINE.filter(x => x !== 'Remove next actions' || view?.comps.some(c => c.id === 'actions')).map(x => <button type="button" key={x} className="chip" onClick={() => ask({ text: x })}>{x}</button>)}</div></>}
         </form>
         {shown?.clients && <div><label htmlFor="cl">Client</label>
-          <select id="cl" value={clientId} onChange={e => ask({ pick: mode || 'home', clientId: e.target.value })}>
+          <select id="cl" value={clientId} disabled={busy} onChange={e => ask({ pick: mode || 'home', clientId: e.target.value })}>
             {shown.clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
           <p className="fine">You can also type a client name, like "Aarogya usage". Company records are fictional Indian demo data.</p></div>}
         {busy && <p className="sub">AI is arranging your screen...</p>}
