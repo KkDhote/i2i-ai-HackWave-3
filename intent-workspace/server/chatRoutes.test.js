@@ -46,7 +46,8 @@ const db = { collection(name) { return {
   }; }
 }; } };
 let modelCalls = 0, modelInput;
-const mockedChat = async input => { modelCalls++; modelInput = input; return 'GST filing uses the April invoices you discussed earlier.'; };
+let modelReply = { intent:'task_details', confidence:0.9, taskKeys:[taskKey(clientTask)], goalIds:[], answer:'All work was completed and ₹9000 was paid.' };
+const mockedChat = async input => { modelCalls++; modelInput = input; return JSON.stringify(modelReply); };
 const mockedApp = express(); mockedApp.use(express.json()); mockedApp.use(createChatRouter({ getDbImpl: async () => db, chatImpl: mockedChat, env: { NVIDIA_API_KEY: 'synthetic-only' }, now: () => new Date('2026-10-11T10:00:00Z') }));
 const mockedServer = mockedApp.listen(0, '127.0.0.1');
 try {
@@ -61,6 +62,10 @@ try {
   assert.equal(response.status, 200);
   const result = await response.json();
   assert.equal(result.source, 'llm');
+  assert.equal(result.verified, true);
+  assert.match(result.answer, /Recorded details: April invoices/);
+  assert.match(result.answer, /Recorded blocker\/reason: Not recorded/);
+  assert.doesNotMatch(result.answer, /₹9000|All work was completed/);
   assert.equal(result.clientId, 'kestrel');
   assert.ok(modelInput[0].content.includes('Jaipur GST filing covers April invoices'));
   assert.equal(modelInput.some(item => item.content.includes('Injected cross-client history')), false);
@@ -86,6 +91,18 @@ try {
   assert.equal(boundedSnapshot.tasks.find(task => task.title === 'Special settlement task').description.length, 1500);
   assert.ok(boundedSnapshot.tasks.some(task => task.descriptionTruncated));
   assert.equal((await bounded.json()).historyPartial, true);
+  modelReply = { intent:'task_status',confidence:1,taskKeys:[taskKey(otherTask)],goalIds:[] };
+  const forged = await (await post({message:'Explain the account work',clientId:'kestrel'})).json();
+  assert.equal(forged.source,'records');
+  assert.match(forged.answer,/Which task/);
+  assert.doesNotMatch(forged.answer,/Other client private work/);
+  const callsBefore=modelCalls;
+  const ambiguous=await (await post({message:'Why is it pending?',clientId:'kestrel',history:[{role:'user',content:'Prepare GST filing and Special settlement task'}]})).json();
+  assert.match(ambiguous.answer,/Which task/);
+  assert.equal(modelCalls,callsBefore);
+  const cross=await (await post({message:'Show solstice priority tasks',clientId:'kestrel'})).json();
+  assert.match(cross.answer,/Switch the Client selector/);
+  assert.equal(modelCalls,callsBefore);
   console.log('Chat saved-memory, client snapshot isolation and mocked model checks passed.');
 } finally { mockedServer.closeAllConnections(); await new Promise(resolve => mockedServer.close(resolve)); }
 

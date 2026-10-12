@@ -37,7 +37,7 @@ export default function ActionModal({ action, mode, clientId, masked, onClose, o
           <textarea id="am-b" rows="10" value={show(body)} readOnly={masked} onChange={e => setBody(e.target.value)} />
           <details open><summary>Based on {draft.evidence.length} facts from your workspace</summary>
             <ul>{draft.evidence.map((e, i) => <li key={i}>{show(e)}</li>)}</ul></details>
-          <p className="fine">Drafted by {draft.source === 'llm' ? 'AI' : 'a built-in template (AI unavailable)'}. Approve opens your email app with this text. The recipient is chosen there.</p>
+          <p className="fine">Drafted from the recorded evidence above. Approve opens your email app with this text; it does not send the message. The recipient is chosen there.</p>
           {masked && <p className="fine"><b>Demo mode is on: approving is disabled.</b></p>}
         </>}
         <div className="row-btns">

@@ -13,6 +13,8 @@ function StatCards({ data, c }) {
 
 function LineChart({ data, c }) {
   const u = data.usage, W = 560, H = 170, p = 28;
+  if (!u?.length) return <p className="fine">No usage records are available for this client.</p>;
+  if (u.length === 1) return <p className="fine">One recorded daily active-user value: {u[0]}. More records are needed to show a trend.</p>;
   const lo = Math.min(...u), hi = Math.max(...u), pad = Math.max(1, (hi - lo) * 0.12);
   const mn = lo - pad, mx = hi + pad;
   const x = i => p + i * (W - 2 * p) / (u.length - 1), y = v => H - p - (v - mn) * (H - 2 * p) / (mx - mn);
@@ -60,13 +62,13 @@ function DataTable({ data, c }) {
 }
 
 const ACTIONS = {
-  home: ['Start a task', 'Invite teammate'],
-  meeting: ['Draft agenda email', 'Share last-meeting recap', 'Escalate export bug'],
-  usage: ['Open Safari login report', 'Notify support lead', 'Start incident review'],
-  overdue: ['Nudge owners', 'Reschedule 3 tasks', 'Request partner keys']
+  home: ['Draft a task brief', 'Draft a teammate invitation'],
+  meeting: ['Draft meeting agenda', 'Draft last-meeting recap', 'Draft issue follow-up'],
+  usage: ['Draft usage investigation note', 'Draft support follow-up'],
+  overdue: ['Draft owner follow-up', 'Draft deadline review', 'Draft blocker follow-up']
 };
-function ActionBar({ c, onAct }) {
-  const a = ACTIONS[c.variant] || ACTIONS.home;
+function ActionBar({ data, c, onAct }) {
+  const a = data.actions?.[c.variant] || ACTIONS[c.variant] || ACTIONS.home;
   return <div className="acts">{a.map(x => <button key={x} className="btn ghost sm" onClick={() => onAct(x)}>{x}</button>)}</div>;
 }
 

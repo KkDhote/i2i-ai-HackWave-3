@@ -4,11 +4,17 @@ import seed from './seed/data.js';
 export function detect(text) {
   const t = text.toLowerCase();
   return Object.entries(layouts).filter(([, l]) => l.keywords).map(([key, l]) => {
-    const hits = l.keywords.filter(w => t.includes(w));
+    const hits = l.keywords.filter(w => new RegExp('\\b' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(t));
     return { key, score: hits.length, hits };
   }).sort((a, b) => b.score - a.score);
 }
 export function decide(text) {
+  if (/\b(?:who|which).*(?:blocked|behind schedule)|\bon track to ship\b|(?:रुके|देरी|लेट)\s*(?:काम|टास्क|task)/i.test(text)) return { type: 'intent', key: 'overdue', hits: ['work status'], confidence: 0.8 };
+  if (/\buser activity\b|\busers?\b.*(?:कम|घट)|उपयोग.*(?:कम|घट)/i.test(text)) return { type: 'intent', key: 'usage', hits: ['user activity'], confidence: 0.8 };
+  if (/\bdiscuss\b/i.test(text) && detectClient(text) || /बैठक|मीटिंग|meeting.*(?:तैयार|tayyar)/i.test(text)) return { type: 'intent', key: 'meeting', hits: ['meeting preparation'], confidence: 0.8 };
+  if (/\b(?:open|client|support|checkout|webhook|sensor|audit|scheduling)\s+(?:issues?|tickets?|bugs?|outages?)\b/i.test(text)) return { type: 'intent', key: 'issues', hits: ['open issues'], confidence: 0.8 };
+  if (/\b(?:recent|client)\s+(?:messages?|communications?|updates?)\b/i.test(text)) return { type: 'intent', key: 'updates', hits: ['recent communication'], confidence: 0.8 };
+  if (/\bfollow[ -]?ups?\b|\bmeeting commitments\b/i.test(text)) return { type: 'intent', key: 'followups', hits: ['meeting follow-ups'], confidence: 0.8 };
   const [a, b] = detect(text);
   if (a.score === 0) return { type: 'clarify', message: "I'm not sure what you're trying to do. Which fits best?", keys: TASKS };
   if (b.score > 0 && a.score - b.score < 1) return { type: 'clarify', message: 'That could mean two things. Which one?', keys: [a.key, b.key] };
@@ -32,7 +38,7 @@ export function patchByRules(text, current) {
   const patch = del
     ? { add: [], remove: ids.filter(id => have.has(id)) }
     : { add: ids.filter(id => !have.has(id)).map(id => ({ id, span: 6, reason: 'You asked for this to be added.' })), remove: [] };
-  return patch.add.length || patch.remove.length ? patch : null;
+  return ids.length ? patch : null;
 }
 
 // ---- Which client does the user mean? ("Bluepeak meeting", "Kestrel usage") ----

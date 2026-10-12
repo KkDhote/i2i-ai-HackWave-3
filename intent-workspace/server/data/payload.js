@@ -107,7 +107,7 @@ export function buildPayload(src, clientId, now = new Date()) {
         { label: 'Active users', value: Math.round(homeNow).toLocaleString('en-US'), delta: signed(homeD), tone: homeD >= 0 ? 'up' : 'dn' },
         { label: 'Open tasks', value: String(open.length) },
         { label: 'At-risk accounts', value: String(atRisk), delta: `of ${clients.length}`, tone: atRisk ? 'dn' : 'up' },
-        { label: 'Uptime', value: '99.9%', delta: '30d', tone: 'up' }
+        { label: 'Clients', value: String(clients.length), delta: 'recorded accounts' }
       ],
       usage: [
         { label: 'Active users', value: String(Math.round(uNow)), delta: signed(uD), tone: uD < 0 ? 'dn' : 'up' },
@@ -123,10 +123,10 @@ export function buildPayload(src, clientId, now = new Date()) {
       ]
     },
     actions: {
-      home: ['Start a task', 'Invite teammate'],
-      meeting: ['Draft agenda email', 'Share last-meeting recap', 'Escalate export bug'],
-      usage: ['Open Safari login report', 'Notify support lead', 'Start incident review'],
-      overdue: ['Nudge owners', 'Reschedule 3 tasks', 'Request partner keys']
+      home: ['Draft a task brief', 'Draft a teammate invitation'],
+      meeting: ['Draft meeting agenda', 'Draft last-meeting recap', 'Draft issue follow-up'],
+      usage: ['Draft usage investigation note', 'Draft support follow-up'],
+      overdue: ['Draft owner follow-up', 'Draft deadline review', 'Draft blocker follow-up']
     },
     causes: pick('cause').map(i => ({ tag: i.tag, tone: i.tone, text: i.text })),
     releases: releases.sort((a, b) => time(a.at) - time(b.at)).map(r => ({ tag: 'Day ' + (29 - Math.round((now.getTime() - time(r.at)) / DAY)), tone: 'n', text: r.text })),

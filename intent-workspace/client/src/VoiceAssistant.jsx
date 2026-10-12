@@ -3,10 +3,11 @@ import { answerWorkspace } from './taskAnswers.js';
 import { maskText } from './lib.js';
 import { api } from './api.js';
 import { isTaskRequest, startTaskDialog, advanceTaskDialog, applyTaskIntake } from './taskDialog.js';
+import { workspaceRequest } from './workspaceRequest.js';
 
 const welcome = 'Hi! Ask about this client’s tasks, priorities, blockers or goals. To add work, describe the task and I’ll ask useful questions only when needed. Reopen a saved chat to continue earlier discussions. You can type or use the mic.';
 const message = (role, content, extra = {}) => ({ id: crypto.randomUUID(), role, content: content.slice(0, 6000), ...extra });
-export default function VoiceAssistant({ demo, clientId = null, clientName = 'Workspace' }) {
+export default function VoiceAssistant({ demo, clientId = null, clientName = 'Workspace', onWorkspaceRequest }) {
   const [open, setOpen] = useState(false);
   const chatVisible = useRef(false), launcher = useRef(null), panel = useRef(null);
   const [question, setQuestion] = useState(''), [messages, setMessages] = useState([]);
@@ -143,6 +144,16 @@ export default function VoiceAssistant({ demo, clientId = null, clientName = 'Wo
     const timeout = setTimeout(() => controller.abort(), 40000);
     let activeDraft = taskDraft;
     try {
+      const viewRequest = !taskDraft && !isTaskRequest(value) && workspaceRequest(value);
+      if (viewRequest && onWorkspaceRequest) {
+        const content = await onWorkspaceRequest(value, viewRequest);
+        if (!mounted.current) return;
+        nextMessages = [...nextMessages, message('assistant', content, { source:'workspace-view',language:lang })];
+        setMessages(nextMessages);
+        await persist(nextMessages, null);
+        if (!controller.signal.aborted && autoSpeak) speak(content);
+        return;
+      }
       let step = taskDraft || isTaskRequest(value) ? (taskDraft ? advanceTaskDialog(taskDraft, value, lang === 'hi-IN') : startTaskDialog(value, lang === 'hi-IN')) : null;
       if (step) {
         step.draft = { ...step.draft, clientId };
@@ -185,7 +196,7 @@ export default function VoiceAssistant({ demo, clientId = null, clientName = 'Wo
       let content = reply.answer;
       if (reply.source === 'rules') {
         if (/how.*(app|workspace)|what.*(app|you).*do|help|features/i.test(value)) {
-          content = 'I2I By AI adapts your dashboard for meetings, usage investigation, and overdue work. Use Add task at the bottom to save work with an owner, due date, priority, status, and blocker reason. Create goals and link tasks to track progress and gaps. Notifications warn three days and one day before a due date, plus overdue work and blockers. Enable desktop alerts in that card for alerts while the app is open. Customer email, WhatsApp and SMS settings are available; delivery is waiting for provider setup.';
+          content = 'I2I By AI adapts your dashboard for meetings, usage, issues, messages and overdue work. Ask “show open issues” to change the screen. Use Add task or guided chat setup to save work after confirmation. Goals track linked tasks and gaps. Notifications warn three days and one day before deadlines. Customer reminders use email through Resend and require configured sending. Use the Calendar card to save dated entries and explicitly sync to Google.';
         } else {
           const records = await Promise.all(['/api/goals/tasks', '/api/goals', '/api/mentor/status'].map(async path => {
             const r = await fetch(path, { signal: controller.signal });
@@ -207,7 +218,7 @@ export default function VoiceAssistant({ demo, clientId = null, clientName = 'Wo
         }
       }
       if (typeof content !== 'string' || !content.trim()) throw Error('No reply received. Please try again.');
-      nextMessages = [...nextMessages, message('assistant', content, { source: reply.source, reason: reply.reason, language: lang, partial: reply.partial || reply.historyPartial })];
+      nextMessages = [...nextMessages, message('assistant', content, { source: reply.source, verified:!!reply.verified, reason: reply.reason, language: lang, partial: reply.partial || reply.historyPartial })];
       if (mounted.current) setMessages(nextMessages);
       await persist(nextMessages, null);
       if (mounted.current && !controller.signal.aborted && autoSpeak) speak(content);
@@ -241,7 +252,7 @@ export default function VoiceAssistant({ demo, clientId = null, clientName = 'Wo
     {earlierMessages && <p className="fine">Earlier messages remain saved and are searched for relevant context. <button className="chip" disabled={busy || listening || loadingChat} onClick={loadEarlier}>Load earlier messages</button></p>}
     <div className="chat-transcript" ref={transcript} role="log" aria-label="Chat messages" aria-live="polite" aria-relevant="additions" tabIndex={0}>
       <article className="chat-message assistant"><b>I2I assistant</b><p>{welcome}</p></article>
-      {messages.map((m, i) => <article key={i} className={`chat-message ${m.role}${m.failed ? ' chat-failed' : ''}`}><b>{m.role === 'user' ? 'You' : 'I2I assistant'}</b><p>{display(m.content)}</p>{m.role === 'assistant' && !m.failed && <div className="chat-message-tools"><small>{m.source === 'task-draft' ? 'Task setup' : m.source === 'llm' ? 'AI · workspace records' : 'Rules fallback · workspace records'}</small><button type="button" className="chip" onClick={() => speak(m.content, m.language)}>Read reply</button>{m.savedTaskKey && <a href={`#task-${m.savedTaskKey}`}>View saved task</a>}{m.reason && <small>{m.reason}</small>}{m.partial && <small>Limited snapshot; ask about a specific task or goal.</small>}</div>}</article>)}
+      {messages.map((m, i) => <article key={i} className={`chat-message ${m.role}${m.failed ? ' chat-failed' : ''}`}><b>{m.role === 'user' ? 'You' : 'I2I assistant'}</b><p>{display(m.content)}</p>{m.role === 'assistant' && !m.failed && <div className="chat-message-tools"><small>{m.source === 'task-draft' ? 'Task setup' : m.source === 'workspace-view' ? 'Dashboard request' : m.verified ? 'Checked workspace records' : m.source === 'llm' ? 'AI · workspace records' : 'Rules fallback · workspace records'}</small><button type="button" className="chip" onClick={() => speak(m.content, m.language)}>Read reply</button>{m.savedTaskKey && <a href={`#task-${m.savedTaskKey}`}>View saved task</a>}{m.reason && <small>{m.reason}</small>}{m.partial && <small>Limited snapshot; ask about a specific task or goal.</small>}</div>}</article>)}
       {busy && <p className="fine" role="status">{taskDraft?.field === 'intake' ? 'Understanding your task…' : 'Checking this conversation and client’s records…'}</p>}
     </div>
     {taskDraft && <p className="note" role="status">Task draft for {display(clientName)} · {taskDraft.field === 'review' ? 'Review the details and confirm to add the task.' : taskDraft.field === 'intake' ? 'Reading the task brief.' : `Waiting for ${({ title: 'task details', context: 'a useful task detail (optional)', owner: 'owner', dueDate: 'due date', priority: 'priority', status: 'status', blocker: 'blocker reason' })[taskDraft.field]}.`} The draft is kept with this chat; the task has not been added yet.</p>}

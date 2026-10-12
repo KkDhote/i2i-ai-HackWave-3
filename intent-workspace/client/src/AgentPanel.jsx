@@ -12,7 +12,7 @@ const argText = a => Object.values(a || {}).filter(Boolean).join(', ');
 
 export default function AgentPanel({ agent, mk = s => s }) {
   if (!agent || (!agent.calls?.length && !agent.findings?.length)) return null;
-  const ok = (agent.calls || []).filter(c => c.ok).length, total = Math.max(0, ...((agent.calls || []).map(c => c.ms || 0)));
+  const ok = (agent.calls || []).filter(c => c.ok).length;
   return (
     <details className="agent" open>
       <summary>How the agent decided: checked {ok} data source{ok === 1 ? '' : 's'}{agent.planner === 'rules' ? ' (fallback rules picked the checks)' : ''}</summary>
@@ -28,7 +28,7 @@ export default function AgentPanel({ agent, mk = s => s }) {
               <div className={c.ok ? '' : 'dn'}>{c.ok ? mk(c.summary) : 'Could not run: ' + c.summary}</div></div>
             <span className="fine">{c.ms} ms</span>
           </li>))}</ol>
-        <p className="fine">Every number in "Why this?" comes from these checks, not from the AI's memory.{total ? '' : ''}</p></>}
+        <p className="fine">Findings come from the recorded checks above. The AI selects the layout; widget evidence shows the underlying records.</p></>}
     </details>
   );
 }

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import './goal-workspace.css';
-const ROOT = 'http://localhost:5001';
+const ROOT = '';
 export default function GoalWorkspace() {
   const [goals, setGoals] = useState([]), [tasks, setTasks] = useState([]);
   const [title, setTitle] = useState(''), [selected, setSelected] = useState([]), [error, setError] = useState('');

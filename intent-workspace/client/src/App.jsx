@@ -46,6 +46,7 @@ export default function App() {
   const [demo, setDemo] = useState(false);
   const [budget, setBudget] = useState(8);
   const viewRef = useRef(null), dataRef = useRef(null), clientRef = useRef('northwind'), lastReq = useRef(null);
+  const revision = useRef(0);
   const pinsRef = useRef(new Map()), budgetRef = useRef(8);
   const gridRef = useRef(null), timer = useRef(null), els = useRef(new Map()), oldRects = useRef(new Map());
   const setRef = id => el => { if (el) els.current.set(id, el); else els.current.delete(id); };
@@ -62,7 +63,7 @@ export default function App() {
   const shape = (res) => {
     const mode = res.plan.mode, pins = pinsRef.current;
     let comps = res.plan.components.map(c => ({ ...c }));
-    const extra = [...pins.values()].filter(p => !comps.some(c => c.id === p.id)).map(p => ({ ...p, variant: p.variant !== undefined ? mode : undefined }));
+    const extra = [...pins.values()].filter(p => !comps.some(c => c.id === p.id)).map(p => ({ ...p, reason:'Pinned by you. Inspect the current widget evidence.', variant: p.variant !== undefined ? mode : undefined }));
     comps = [...extra, ...comps].map(c => ({ ...c, pinned: pins.has(c.id) }));
     let hidden = 0;
     if (mode !== 'fixed' && comps.length > budgetRef.current) {
@@ -97,12 +98,12 @@ export default function App() {
   };
 
   // Load this client's data BEFORE the screen changes, so nothing flashes with old data.
-  const present = async (res, record = true) => {
-    if (!dataRef.current || (res.clientId && res.clientId !== clientRef.current)) {
-      const d = await api.data(res.clientId || clientRef.current);
-      dataRef.current = d; clientRef.current = d.clientId; setData(d); setClientId(d.clientId);
-    }
+  const present = async (res, record = true, requestId) => {
+    const d = await api.data(res.clientId || clientRef.current);
+    if (requestId !== undefined && requestId !== revision.current) return false;
+    dataRef.current = d; clientRef.current = d.clientId; setData(d); setClientId(d.clientId);
     apply(res, record);
+    return true;
   };
 
   // FLIP: kept widgets glide old spot -> new spot, then new ones fly in one by one; changed ones glow.
@@ -132,21 +133,42 @@ export default function App() {
   }, [view?.stamp]);
 
   const ask = async (body) => {
+    const requestId = ++revision.current;
     lastReq.current = body;
     setBusy(true); setErr('');
     const v = viewRef.current;
     const current = v && { mode: v.plan.mode, title: v.plan.title, desc: v.plan.desc, components: v.comps.map(({ id, span, reason }) => ({ id, span, reason })) };
     try {
       const res = await api.intent({ ...body, current, clientId: body.clientId || clientRef.current });
+      if (requestId !== revision.current) return { status:'superseded' };
       if (res.status === 'clarify' || res.status === 'unsupported') setClar(res);
-      else if (preview && viewRef.current) { setClar(null); setPending(res); }
-      else await present(res);
-    } catch (e) { setErr(friendly(e)); }
-    setBusy(false);
+      else if (preview && viewRef.current) { setClar(null); setPending(res); return { status:'preview',intent:res.intent }; }
+      else if (!await present(res, true, requestId)) return { status:'superseded' };
+      return res;
+    } catch (e) { if (requestId === revision.current) setErr(friendly(e)); return { status:'error',message:friendly(e) }; }
+    finally { if (requestId === revision.current) setBusy(false); }
   };
 
-  const undo = async () => { const [s, ...rest] = hist; if (!s) return; setHist(rest); await present(s.res, false); };
-  const restore = async (i) => { const s = hist[i]; setHist(h => h.filter((_, j) => j !== i)); await present(s.res, true); };
+  const requestWorkspace = async (value, target) => {
+    if (busy) return 'The workspace is still updating. Please try again after it finishes.';
+    const other = (data?.clients || []).find(c => c.id !== clientId && (c.aliases || []).some(alias => new RegExp('\\b' + alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b','i').test(value)));
+    if (other) return `This chat belongs to ${selectedClient}. Select ${other.name} using the Client selector before continuing there.`;
+    if (target.type === 'calendar') {
+      window.location.hash = 'workspace-calendar';
+      window.dispatchEvent(new Event('workspace-open-calendar'));
+      document.getElementById('workspace-calendar')?.scrollIntoView({ behavior:reduced() ? 'auto' : 'smooth' });
+      return `Opened Calendar, meetings & places for ${selectedClient}. Use its controls to add or sync an entry.`;
+    }
+    const result = await ask(target.type === 'layout' ? { pick:target.pick,clientId } : { text:value,clientId });
+    if (result.status === 'plan') return `Updated the dashboard for ${selectedClient}: ${result.intent.name}. Use “Why this?” to inspect the records.${result.plan.components.some(c => ['overdue','load','blockers'].includes(c.id)) ? ' Overdue project work covers the whole workspace.' : ''}`;
+    if (result.status === 'preview') return 'The requested screen is ready for preview. Select Apply in the sidebar to update the dashboard.';
+    if (result.status === 'clarify' || result.status === 'unsupported') return result.message + ' Choose an option in the sidebar.';
+    return result.message || 'That request did not update the dashboard. Please retry.';
+  };
+
+  const restored = res => ({...res,agent:null,summary:'Restored your earlier layout with current records.',intent:{...res.intent,source:'user-pick'},plan:{...res.plan,components:res.plan.components.map(c=>({...c,reason:'Restored from your earlier layout. Inspect the current widget evidence.'}))}});
+  const undo = async () => { const [s, ...rest] = hist; if (!s) return; setHist(rest); await present(restored(s.res), false); };
+  const restore = async (i) => { const s = hist[i]; setHist(h => h.filter((_, j) => j !== i)); await present(restored(s.res), true); };
   const changeBudget = (n) => { setBudget(n); budgetRef.current = n; if (viewRef.current) apply(viewRef.current.res, false); };
   const togglePin = (c) => {
     const pins = pinsRef.current;
@@ -170,7 +192,7 @@ export default function App() {
     window.addEventListener('workspace-tasks-changed', refreshTasks);
     return () => { controller?.abort(); window.removeEventListener('workspace-tasks-changed', refreshTasks); };
   }, []);
-  const submit = (e) => { e.preventDefault(); if (text.trim()) { ask({ text }); setText(''); } };
+  const submit = (e) => { e.preventDefault(); if (!busy && text.trim()) { ask({ text }); setText(''); } };
   const mode = view?.plan.mode;
   const pct = intent ? Math.round(intent.confidence * 100) : 0;
   const shown = useMemo(() => (demo && data ? maskDeep(data) : data), [data, demo]);
@@ -198,7 +220,7 @@ export default function App() {
           <div className="chips" aria-label={'Quick actions for ' + mk(selectedClient)}>{quickActionsFor(clientId).map(action => <button type="button" key={action.pick} className="chip" disabled={busy} onClick={() => ask({ pick: action.pick, clientId })}>{mk(action.label)}</button>)}</div>
           {mode && mode !== 'home' && mode !== 'fixed' && <>
             <label style={{ display: 'block', marginTop: 12 }}>Refine this screen</label>
-            <div className="chips">{REFINE.filter(x => x !== 'Remove next actions' || view?.comps.some(c => c.id === 'actions')).map(x => <button type="button" key={x} className="chip" onClick={() => ask({ text: x })}>{x}</button>)}</div></>}
+            <div className="chips">{REFINE.filter(x => x !== 'Remove next actions' || view?.comps.some(c => c.id === 'actions')).map(x => <button type="button" key={x} className="chip" disabled={busy} onClick={() => ask({ text: x })}>{x}</button>)}</div></>}
         </form>
         {shown?.clients && <div><label htmlFor="cl">Client</label>
           <select id="cl" value={clientId} disabled={busy} onChange={e => ask({ pick: mode || 'home', clientId: e.target.value })}>
@@ -207,7 +229,7 @@ export default function App() {
         {busy && <p className="sub">AI is arranging your screen...</p>}
         {diff && <div className="clar"><b>Preview: {pending.intent.name}</b>
           <p className="fine">Add: {diff.add.map(c => c.def.title).join(', ') || 'nothing'}.<br />Remove: {diff.rem.map(c => c.def.title).join(', ') || 'nothing'}.<br />Keep: {diff.keep} widgets.</p>
-          <div className="chips"><button className="chip" onClick={() => present(pending)}>Apply</button><button className="chip" onClick={() => setPending(null)}>Discard</button></div></div>}
+          <div className="chips"><button className="chip" disabled={busy} onClick={() => present(pending)}>Apply</button><button className="chip" disabled={busy} onClick={() => setPending(null)}>Discard</button></div></div>}
         {clar && <div className="clar"><b>{clar.message}</b>
           <div className="chips">{clar.options.map(o => <button key={o.key} className="chip" onClick={() => ask({ pick: o.key })}>{o.label}</button>)}</div></div>}
         {err && <div className="clar" role="alert">{err}
@@ -216,14 +238,14 @@ export default function App() {
           <b>{intent.key === 'home' ? 'No task set' : intent.name}</b>
           {intent.key !== 'home' && <>
             <div className="meter" role="meter" aria-label="Confidence" aria-valuemin="0" aria-valuemax="100" aria-valuenow={pct}><i style={{ width: pct + '%' }} /></div>
-            <div>Confidence {pct}%{intent.hits.length ? '. Matched: ' + intent.hits.join(', ') : ''}.
-              {' '}Planned by {intent.source === 'llm' ? (intent.cached ? 'AI (instant, cached)' : `AI in ${(intent.ms / 1000).toFixed(1)}s`) : intent.source === 'user-pick' ? 'your choice' : 'built-in rules'}.</div>
-            <p className="fine">Confidence shows how sure the system is that it understood your goal. If it is unsure, it asks instead of guessing.</p>
+            <div>Interpretation confidence {pct}%{intent.hits.length ? '. Matched: ' + intent.hits.join(', ') : ''}.
+              {' '}Planned by {intent.source === 'llm' ? `AI in ${(intent.ms / 1000).toFixed(1)}s` : intent.source === 'user-pick' ? 'your choice' : 'built-in rules'}.</div>
+            <p className="fine">This is an estimate of how the request was interpreted, not measured answer accuracy. Unclear requests ask for clarification.</p>
             {intent.fallback && <p className="fine"><b>The AI was unavailable, so built-in rules planned this screen.</b></p>}</>}
         </div>}
         <div className="ctl">
           <h2 className="small">Workspace controls</h2>
-          <button className="btn ghost sm" onClick={undo} disabled={!hist.length}>Undo last change</button>
+          <button className="btn ghost sm" onClick={undo} disabled={busy || !hist.length}>Undo last change</button>
           <label htmlFor="bud" style={{ fontWeight: 600 }}>Attention budget</label>
           <select id="bud" value={budget} onChange={e => changeBudget(+e.target.value)}>
             <option value="4">Up to 4 widgets</option><option value="6">Up to 6 widgets</option><option value="8">Up to 8 widgets</option></select>
@@ -232,23 +254,23 @@ export default function App() {
           <button className="btn ghost sm" onClick={() => setModal({ type: 'eval' })}>Evaluation and comparison</button>
         </div>
         {hist.length > 0 && <div><h2 className="small">Restore earlier screens</h2>
-          <ul className="rest">{hist.map((h, i) => <li key={i}><span>{mk(h.label)}</span><button className="chip" onClick={() => restore(i)}>Restore</button></li>)}</ul></div>}
+          <ul className="rest">{hist.map((h, i) => <li key={i}><span>{mk(h.label)}</span><button className="chip" disabled={busy} onClick={() => restore(i)}>Restore</button></li>)}</ul></div>}
         {view && <details><summary>View plan JSON</summary>
           <pre>{JSON.stringify(view.comps.map(({ id, span, reason, variant, pinned }) => ({ id, span, reason, variant, pinned })), null, 1)}</pre></details>}
         <div><h2 className="small">What changed</h2><ol className="log">{log.map((x, i) => <li key={i}>{mk(x)}</li>)}</ol></div>
       </aside>
       <main id="main" tabIndex={-1}>
         <NotificationCenter demo={demo} />
-        <VoiceAssistant key={clientId} demo={demo} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} />
+        <VoiceAssistant key={'chat-' + clientId} demo={demo} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} onWorkspaceRequest={requestWorkspace} />
         {view && shown && <>
           <div className="head">
             <div><h2 className="big">{mk(view.plan.title)}</h2><p className="sub">{view.plan.desc}</p></div>
             <div className="tools">
               <button className="btn ghost sm" aria-pressed={whyAll} onClick={() => setWhyAll(v => !v)}>{whyAll ? 'Hide all reasons' : 'Show all reasons'}</button>
-              <button className="btn ghost sm" onClick={() => ask({ pick: 'home' })}>Back to dashboard</button>
+              <button className="btn ghost sm" disabled={busy} onClick={() => ask({ pick: 'home' })}>Back to dashboard</button>
             </div>
           </div>
-          {view.summary && <p className="note"><b>AI note:</b> {mk(view.summary)}</p>}
+          {view.summary && <p className="note"><b>Workspace note:</b> {mk(view.summary)}</p>}
           {mode === 'home' && <Briefing onGo={(g) => ask({ text: g })} mk={mk} />}
           {view.res?.agent && <AgentPanel agent={view.res.agent} mk={mk} />}
           <div className="delta">{view.delta}</div>
@@ -263,7 +285,7 @@ export default function App() {
         <TaskList mk={mk} />
         <CalendarWorkspace key={'calendar-' + clientId} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} demo={demo} />
         <GoalWorkspace />
-        <AddTask key={clientId} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} />
+        <AddTask key={'add-task-' + clientId} clientId={clientId} clientName={data?.clients?.find(c => c.id === clientId)?.name || clientId} />
         {!data && !err && <p className="sub">Loading workspace...</p>}
       </main>
       <div className="sr" role="status" aria-live="polite">{announce}</div>

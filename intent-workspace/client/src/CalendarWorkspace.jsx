@@ -25,8 +25,10 @@ export default function CalendarWorkspace({ clientId, clientName, demo = false }
   const query = '?clientId=' + encodeURIComponent(clientId || '');
   useEffect(() => {
     const visitCalendar = () => { if (window.location.hash === '#workspace-calendar') setExpanded(true); };
+    const openCalendar = () => setExpanded(true);
     window.addEventListener('hashchange', visitCalendar);
-    return () => window.removeEventListener('hashchange', visitCalendar);
+    window.addEventListener('workspace-open-calendar', openCalendar);
+    return () => { window.removeEventListener('hashchange', visitCalendar); window.removeEventListener('workspace-open-calendar', openCalendar); };
   }, []);
   async function refresh(signal) {
     const [records, status] = await Promise.all([fetch('/api/calendar/entries' + query, { signal: signal || AbortSignal.timeout(15000) }).then(read), fetch('/api/calendar/status', { signal: signal || AbortSignal.timeout(15000) }).then(read)]);

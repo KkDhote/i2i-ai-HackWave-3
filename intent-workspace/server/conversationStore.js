@@ -29,7 +29,7 @@ export function parseMessages(value) {
       if (!['en-IN', 'hi-IN'].includes(item.language)) return null;
       message.language = item.language;
     }
-    for (const field of ['failed', 'partial', 'historyPartial']) if (item[field] !== undefined) {
+    for (const field of ['failed', 'partial', 'historyPartial', 'verified']) if (item[field] !== undefined) {
       if (typeof item[field] !== 'boolean') return null;
       message[field] = item[field];
     }

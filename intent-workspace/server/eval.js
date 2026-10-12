@@ -1,4 +1,4 @@
-import { decide } from './intent.js';
+import { decide, detectClient } from './intent.js';
 import { planWithLLM } from './llm.js';
 import { layouts, catalog, TASKS } from './catalog.js';
 
@@ -22,7 +22,7 @@ const FIXED_STEPS = { meeting: 7, usage: 6, overdue: 5 };
 async function one([text, expected], useLLM) {
   let got = 'error';
   try {
-    if (useLLM) { const r = await planWithLLM(text, null); got = r.status === 'plan' ? r.intent.key : 'none'; }
+    if (useLLM) { const r = await planWithLLM(text, null, { clientId: detectClient(text) || 'northwind' }); got = r.status === 'plan' ? r.intent.key : 'none'; }
     else { const d = decide(text); got = d.type === 'intent' ? d.key : 'none'; }
   } catch { got = 'error'; }
   return { text, expected, got, ok: got === expected };
