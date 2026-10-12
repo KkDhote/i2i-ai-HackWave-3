@@ -1,245 +1,341 @@
-# I2I By AI
+# I2I By AI — Adaptive AI Workspace
 
-### An AI-powered workspace that adapts to what you want to accomplish
+> **From business intent to actionable outcomes.**
 
-**Intent-to-Interface** is a prototype of an adaptive business workspace. Instead of forcing users to navigate a fixed dashboard, it interprets a natural-language goal, selects relevant business information, and assembles task-focused interface components.
+I2I By AI is an AI-powered adaptive workspace designed to help business teams manage tasks, goals, client information, notifications, and operational insights through a unified interface.
 
-> **Project status:** Working React dashboard and rule-driven dynamic layouts; AI-agent integration and several interactive actions are being verified. This repository is a hackathon prototype, not a production-ready system.
+Instead of navigating multiple static dashboards, users can describe their objectives in natural language. The system interprets their intent and organizes relevant workspace components to help them understand priorities, identify blockers, and determine the next steps.
 
-## The problem
-
-Business users often switch between CRM records, usage analytics, project boards, and messages to complete a single task. Fixed dashboards display the same information regardless of whether someone is preparing for a meeting, investigating declining engagement, or resolving overdue work.
-
-## Our solution
-
-Users describe their goal in plain language, such as:
-
-- **“Prepare for tomorrow's client meeting”** → client summary, issues, recent communication, meeting notes, talking points, and next actions.
-- **“Investigate why active users dropped”** → usage metrics, trend chart, release history, affected segments, and possible causes.
-- **“Review overdue project work”** → overdue tasks, owners, priorities, blockers, and recommended follow-ups.
-
-The workspace then chooses and rearranges relevant UI widgets. The current implementation supports rule-based planning as a fallback when AI planning is unavailable.
-
-## Key capabilities
-
-| Capability | Status |
-| --- | --- |
-| React dashboard and reusable widgets | Demonstrated |
-| Intent-driven layout switching | Demonstrated (rules path) |
-| Client selection and client-specific business data | Demonstrated |
-| Saved chats and resumable task drafts for each client | Implemented; history, client scoping and revisions checked with fake records |
-| Task-specific questions with typed and voice input | Implemented; clear tasks skip extra context questions and saving requires review/confirmation |
-| Overview, usage, meeting, and overdue-work layouts | Demonstrated |
-| MongoDB integration with seed-data fallback | Implemented; runtime environment may vary |
-| AI planning using NVIDIA API | Integrated in current backend; end-to-end validation pending |
-| Agent tools and evidence trace | Files installed; UI/runtime validation pending |
-| “Needs your attention” briefing | UI installed; verify live rendering |
-| Contextual **Next actions** buttons | **Known issue:** buttons may render empty |
-| Evaluation: rules vs AI | Needs a recorded test run |
-
-**Note:** A high confidence score or a dynamically changing layout is not, by itself, proof that an LLM was used. Check the backend response source and agent trace during demonstrations.
-
-## Client chat and task setup
-
-Select a client in the sidebar, then use **I2I Chat**. Its **Saved chats** menu reopens that client's conversations, including unfinished task drafts. **New chat** keeps the previous conversation available. Messages and drafts are stored in MongoDB; failures are shown with a retry option. This groups conversations in the shared demo workspace; separate authenticated customer accounts are not implemented.
-
-Describe the task naturally, for example `Add a task: Fix login issue; owner Ravi; due tomorrow`. The chatbot asks relevant optional questions, such as the failing app/error, instead of a fixed checklist. Clear tasks skip these questions, and **Skip extra questions** is available. Priority defaults to Medium and status to open. Missing owner, due date and a reason for blocked work are still required. Review the details and confirm before the task appears in the task list. The task saves the supplied brief and context answers for future questions.
-
-To reuse earlier details, reopen the conversation and say `Add a task based on our earlier discussion`. AI intake can use that conversation's context when the existing NVIDIA provider is configured. If AI is unavailable, rules ask for missing details instead of guessing. All messages are retained up to the database document size limit; long chats show recent messages, let users load older pages, and search earlier discussion for relevant model context. The model may ask for clarification when that bounded context is insufficient. These changes were checked with mocked model responses, without sending real client conversations to a provider.
-
-## Architecture
-
-```mermaid
-flowchart TD
-    U[User: natural-language goal] --> UI[React + Vite frontend]
-    UI --> API[Node.js + Express API]
-    API --> P{Planning pathway}
-    P -->|AI enabled and succeeds| LLM[NVIDIA-powered planning]
-    P -->|Fallback| RULES[Intent rules]
-    LLM --> TOOLS[Agent investigation tools]
-    TOOLS --> DATA[Business data layer]
-    RULES --> PLAN[Layout plan]
-    DATA --> PLAN
-    LLM --> PLAN
-    PLAN --> RENDER[Reusable React components]
-    RENDER --> UI
-    UI --> ACTIONS[User-reviewed next actions]
-```
-
-Agent investigation and action execution remain under validation. The diagram shows the intended integrated flow, not proof that every branch is passing end-to-end tests.
-
-## Tech stack
-
-| Layer | Technology |
-| --- | --- |
-| Frontend | React, Vite, CSS |
-| Backend | Node.js, Express |
-| Data | MongoDB / seed-data fallback |
-| AI | NVIDIA API integration, with rule-based fallback |
-| Agent | JavaScript-based investigation, model access, and read-only tools |
-
-## Repository structure
-
-```text
-intent-workspace/
-├── client/
-│   ├── src/
-│   │   ├── App.jsx             # App shell and workspace state
-│   │   ├── registry.jsx        # Reusable widget registry
-│   │   ├── api.js              # Backend requests
-│   │   ├── Briefing.jsx        # Attention/briefing panel
-│   │   ├── AgentPanel.jsx      # Agent decision/evidence UI
-│   │   └── agent.css
-│   └── package.json
-├── server/
-│   ├── agent/
-│   │   ├── investigate.js      # Investigation orchestration
-│   │   ├── nvidia.js           # NVIDIA model integration
-│   │   └── tools.js            # Data-reading tools
-│   ├── data/                  # Data routes, payloads, seed scripts
-│   ├── actions.js             # Contextual action handling
-│   ├── catalog.js             # Available layouts
-│   ├── eval.js                # Evaluation logic
-│   ├── intent.js              # Rule-based intent matching
-│   ├── llm.js                 # AI planner
-│   ├── plan.js                # Plan construction and updates
-│   ├── server.js              # Express server and API
-│   ├── store.js               # Workspace data access
-│   └── package.json
-└── README.md
-```
-
-Some files were introduced through incremental development packs. Your final repository may differ slightly; update the tree to match the files you commit.
-
-## Getting started
-
-### Requirements
-
-- Node.js and npm (use a current LTS release)
-- Optional: locally running MongoDB
-- Optional: NVIDIA API credentials for AI-backed behavior
-
-### 1. Install dependencies
-
-From the repository root:
-
-```bash
-cd client
-npm install
-
-cd ../server
-npm install
-```
-
-### 2. Configure the backend
-
-Create `server/.env` (do **not** commit this file):
-
-```dotenv
-PORT=5001
-MONGO_URI=mongodb://127.0.0.1:27017/intent_workspace
-NVIDIA_API_KEY=your_key_here
-```
-
-`NVIDIA_API_KEY` is optional for rule-based demonstrations. The current server checks this variable before calling the AI planner. Without it, or if the model call fails, rule-based responses may appear.
-
-The project has changed providers during development; use the variable expected by your **current** `server.js`, not an older guide referring to `ANTHROPIC_API_KEY`.
-
-### 3. Start the backend
-
-```bash
-cd server
-npm run dev
-```
-
-Expected local backend address: `http://localhost:5001`.
-
-### 4. Start the frontend
-
-In a second terminal:
-
-```bash
-cd client
-npm run dev
-```
-
-Open the Vite URL shown in the terminal (usually `http://localhost:5173`). The frontend must be configured to proxy `/api` requests to port 5001, or otherwise use the appropriate backend origin.
-
-### 5. Verify API responses
-
-```bash
-curl http://localhost:5001/api/health
-curl 'http://localhost:5001/api/data?client=kestrel'
-```
-
-The health endpoint should report `ok: true`. The model availability field depends on the server revision and environment. A configured API key does not guarantee a successful model request—confirm by running a test prompt and inspecting the returned source/agent trace.
-
-If your repository includes the data-pack seeding script and you want fresh demo records:
-
-```bash
-cd server
-node data/seedReal.js
-```
-
-Only run this against a **development/demo database**; review the seeding script first, as it may write data.
-
-## API overview
-
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET` | `/api/health` | Basic backend/model configuration check |
-| `GET` | `/api/data?client=kestrel` | Retrieve client-scoped data |
-| `POST` | `/api/intent` | Interpret goal and return a layout plan |
-| `POST` | `/api/action` | Handle a contextual action request |
-
-Other endpoints such as briefing or evaluation depend on the installed update packs; verify current routes in `server.js` and `server/data/routes.js` before documenting them as stable.
-
-Example intent request:
-
-```bash
-curl -X POST http://localhost:5001/api/intent \
-  -H 'Content-Type: application/json' \
-  -d '{"text":"Investigate why active users dropped","clientId":"kestrel"}'
-```
-
-## Demo walkthrough
-
-1. Start on **Workspace overview** and explain the attention cards and overall metrics.
-2. Select a client and enter **“Prepare for tomorrow's client meeting.”** Show the meeting-focused widgets.
-3. Enter **“Investigate why active users dropped.”** Show the trend, affected segments, and supporting context.
-4. Enter **“Review overdue project work.”** Show owners, delays, and blockers.
-5. If the AI path is verified, expand **How the agent decided** to show real tool calls and evidence.
-6. Test a contextual next action and demonstrate human approval before any external effect.
-7. Compare rule-based and AI evaluation outputs using actual recorded results.
-
-## Current limitations and roadmap
-
-- [ ] Fix the empty **Next actions** card; verify buttons and action preview/approval.
-- [ ] Confirm the agent's trace survives API response handling and reaches `AgentPanel`.
-- [ ] Verify NVIDIA model requests actually succeed; clearly distinguish AI plans from rules fallback.
-- [ ] Validate attention briefing against live API responses.
-- [ ] Test **Pin**, **Undo/Restore**, **attention budget**, and **demo/privacy mode** end-to-end.
-- [ ] Run a repeatable rules-vs-AI evaluation and report measured accuracy and latency.
-- [ ] Add loading, empty, timeout, and error states.
-- [ ] Add tests, authorization, logging redaction, and deployment configuration.
-- [ ] Record a backup demo and finalize the hackathon pitch.
-
-## Evaluation approach
-
-Use the same set of prompts and client records for both methods. Track intent classification, selected-widget relevance, task completion, latency, tool correctness, and whether claims are grounded in retrieved evidence. Publish only observed numbers; do not present seeded data or illustrative results as live business performance.
-
-## Security and data considerations
-
-- Never commit `.env`, API keys, customer credentials, or private records.
-- Use synthetic or permissioned demo data during judging.
-- Redact secrets from logs and screenshots.
-- Require explicit approval for sending emails or making external changes.
-- Add authentication and per-client authorization before production deployment.
-
-## Why this project matters
-
-**Intent-to-Interface shifts the workflow from “find the right screen” to “describe the task.”** Its value is not simply a generated dashboard: the longer-term goal is a transparent, data-grounded workspace that helps users move from intent to informed action.
+Built for **HackWave 3.0**, I2I By AI explores how AI can make business software more adaptive, contextual, and action-oriented.
 
 ---
 
-**Built for a hackathon • Prototype under active development**
+## Table of Contents
+
+- [Problem Statement](#problem-statement)
+- [Our Solution](#our-solution)
+- [Key Features](#key-features)
+- [Technology Stack](#technology-stack)
+- [System Architecture](#system-architecture)
+- [How It Works](#how-it-works)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [API and Data Flow](#api-and-data-flow)
+- [Current Limitations](#current-limitations)
+- [Future Scope](#future-scope)
+- [Contributing](#contributing)
+- [Team](#team)
+
+## Problem Statement
+
+Modern business teams often depend on multiple tools to manage tasks, track goals, monitor performance, prepare client meetings, and coordinate daily operations.
+
+Traditional dashboards are usually static and require users to manually search for relevant information, identify dependencies, and decide what to do next.
+
+This creates several challenges:
+
+- Fragmented business information.
+- Limited visibility into task blockers and overdue work.
+- Manual coordination between tasks, goals, and teams.
+- Difficulty identifying the most important next action.
+- Dashboards that do not adapt to the user's immediate objective.
+
+## Our Solution
+
+I2I By AI aims to bridge the gap between business intent and execution through an adaptive workspace.
+
+Users describe what they want to accomplish, and the system generates a workspace plan containing relevant components, information, and suggested actions.
+
+The platform combines natural-language interaction with task management, goal tracking, client intelligence, analytics, and proactive alerts.
+
+**Our vision:** A workspace that adapts to the work instead of forcing users to adapt to the software.
+
+## Key Features
+
+### 1. Adaptive AI Workspace
+- Accepts natural-language requests.
+- Interprets user intent and proposes relevant workspace components.
+- Supports workspace replacement and modification workflows.
+- Uses a rule-based fallback for supported requests when AI generation fails.
+
+### 2. Task Management
+- Organizes tasks by owner, status, priority, and due date.
+- Displays blockers and reasons for delays.
+- Supports task search and task-oriented workflows.
+- Helps users identify pending and overdue work.
+
+### 3. Goal Tracking and Gap Radar
+- Connects goals with existing project tasks.
+- Displays task completion progress.
+- Identifies potential risks and blocked work.
+- Surfaces alerts that may require intervention.
+
+### 4. AI-Powered Chat Assistant
+- Provides a conversational interface for business workflows.
+- Supports task-oriented prompts and contextual assistance.
+- Helps users explore priorities, blockers, and next actions.
+
+### 5. Notifications and Reminders
+- Displays upcoming deadlines and overdue tasks.
+- Provides in-app notification summaries.
+- Includes configurable customer reminder workflows.
+- Supports desktop alerts while the application is running, where enabled.
+
+External reminder delivery depends on the required provider configuration.
+
+### 6. Client Intelligence
+- Presents client overviews and business health indicators.
+- Organizes open issues, recent communications, and meeting information.
+- Suggests relevant talking points and next actions.
+
+### 7. Analytics and Usage Insights
+- Presents key business metrics and activity trends.
+- Highlights changes in user activity and operational performance.
+- Helps users investigate potential causes and identify follow-up actions.
+
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|---|---|---|
+| Frontend | React.js | Interactive user interface |
+| Frontend tooling | Vite | Development server and production builds |
+| UI | HTML5, CSS3, JavaScript | Layout, styling, and interactions |
+| Backend | Node.js | Server-side JavaScript runtime |
+| API framework | Express.js | HTTP endpoints and backend request handling |
+| Database | MongoDB | Persistent business and application data, where configured |
+| AI integration | LLM API | Intent interpretation and workspace planning |
+| Fallback logic | JavaScript rules | Handles supported requests when AI generation is unavailable |
+| Communication | REST APIs and JSON | Structured communication between frontend and backend |
+| Version control | Git and GitHub | Source control and collaboration |
+
+**Note:** The active AI provider and database configuration should match the actual backend implementation. Consult the environment configuration before selecting a provider or database for deployment.
+
+## System Architecture
+
+```text
+                    USER
+                      |
+                      v
+             React + Vite Frontend
+                      |
+                HTTP / JSON
+                      |
+                      v
+              Express.js Backend
+                      |
+              Intent Processing
+                      |
+              +-------+-------+
+              |               |
+              v               v
+          LLM API       Rule-Based Fallback
+              |               |
+              +-------+-------+
+                      |
+                      v
+             Plan Validation
+                      |
+                      v
+          Workspace Configuration
+                      |
+                      v
+          Adaptive React Interface
+                      |
+                      v
+           User Reviews / Acts
+                      |
+                      v
+            Database Operations
+                      |
+                      v
+                  MongoDB
+```
+
+The diagram represents the intended request flow. Actual database operations depend on the implemented route and persistence logic.
+
+## How It Works
+
+1. **User input:** The user describes an objective, such as preparing a client meeting or investigating overdue work.
+2. **Request processing:** The frontend sends the request to the backend using an API call.
+3. **Intent interpretation:** The backend invokes the configured AI planner or an available rule-based fallback.
+4. **Plan generation:** The planning logic produces a structured workspace configuration.
+5. **Validation:** The backend checks the generated result before returning it.
+6. **Workspace rendering:** React displays the relevant components and information.
+7. **Task execution:** The user reviews the workspace and performs supported actions.
+8. **Persistence:** Implemented database operations save the relevant changes.
+
+The application should distinguish AI-generated results from fallback results so users can understand how a plan was produced.
+
+## Project Structure
+
+The repository contains separate frontend and backend areas. The following illustrates their intended responsibilities; check the current repository for the exact file names.
+
+```text
+i2i-ai-HackWave-3/
+├── client/                 # React + Vite frontend
+│   ├── src/
+│   │   ├── components/     # Reusable interface components
+│   │   ├── pages/          # Workspace views
+│   │   └── ...             # Application code
+│   ├── package.json
+│   └── vite.config.js
+│
+├── server/                 # Node.js + Express backend
+│   ├── server.js           # Server and API routes
+│   ├── llm.js              # AI planning integration
+│   └── ...                 # Data and business logic
+│
+├── .gitignore
+└── README.md
+```
+
+## Getting Started
+
+### Prerequisites
+
+Install the following:
+
+- Node.js and npm.
+- Git.
+- A MongoDB instance if the selected workflow requires persistent database access.
+- Valid credentials for the AI provider configured in the backend.
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/KkDhote/i2i-ai-HackWave-3.git
+cd i2i-ai-HackWave-3
+```
+
+### 2. Install backend dependencies
+
+```bash
+cd server
+npm install
+```
+
+Configure the backend environment variables before starting the server.
+
+### 3. Start the backend
+
+Use the start script defined in `server/package.json`. If it defines a `start` script:
+
+```bash
+npm start
+```
+
+If it defines a development script instead, use the corresponding script, such as `npm run dev`.
+
+Keep this terminal running.
+
+### 4. Install frontend dependencies
+
+Open a second terminal:
+
+```bash
+cd client
+npm install
+```
+
+### 5. Start the frontend
+
+```bash
+npm run dev
+```
+
+Vite will print the local development URL in the terminal. Open that URL in your browser.
+
+**Important:** The frontend API base URL, backend port, and start scripts must match your actual configuration. Do not assume that the commands or default ports above are configured identically in every version of the repository.
+
+## Environment Variables
+
+Create a local `.env` file in the backend directory using the variable names expected by your current server code.
+
+Example template:
+
+```env
+PORT=5000
+ANTHROPIC_API_KEY=your_api_key_here
+MONGODB_URI=your_mongodb_connection_string
+```
+
+These are illustrative settings, not a guarantee that every variable is required or consumed by the current code.
+
+- Use the actual port configured by the backend.
+- Configure the AI key for the provider used by `server/llm.js`.
+- Configure the MongoDB URI only if the active database implementation uses it.
+- Add the frontend API URL variable if required by the Vite configuration.
+- Never commit real API keys, passwords, or database credentials to GitHub.
+- Add local environment files to `.gitignore`.
+
+## API and Data Flow
+
+The frontend and backend communicate using HTTP requests and JSON responses.
+
+A typical planning request contains a natural-language intent and, when required, information about the current workspace.
+
+Illustrative request:
+
+```json
+{
+  "intent": "Prepare a client meeting",
+  "client": "Bharat Logistics"
+}
+```
+
+The backend processes the request and returns a structured result according to its implemented API contract.
+
+JSON provides a standard way to represent request parameters, task records, workspace plans, and API responses. It is a data format, not a programming language or database.
+
+Check the current route definitions before relying on any specific endpoint, request field, or response structure.
+
+## Current Limitations
+
+I2I By AI is a hackathon prototype and should not be treated as a production-ready enterprise system without further validation.
+
+Areas requiring testing include:
+
+- Reliability and correctness of AI-generated workspace plans.
+- Consistency between dashboard metrics and underlying task data.
+- Database persistence across all supported workflows.
+- AI provider failures, invalid credentials, timeouts, and fallback behavior.
+- Notification provider configuration and actual message delivery.
+- Authentication, authorization, and client-level data isolation.
+- Input validation, error handling, and automated test coverage.
+- Responsive behavior across different screen sizes.
+
+Some displayed business records may be demonstration or seed data. Demo metrics should not be interpreted as verified live business information.
+
+## Future Scope
+
+Potential future improvements include:
+
+- More reliable intent classification and workspace planning.
+- Evaluation metrics for workspace relevance and task completion.
+- Better explanations for alerts and recommendations.
+- Stronger task dependency and workflow automation.
+- Authentication, role-based permissions, and team collaboration.
+- Improved notification delivery and scheduling reliability.
+- Comprehensive API, integration, and end-to-end testing.
+- Deployment with monitoring, logging, and production security controls.
+
+## Contributing
+
+Contributions and suggestions are welcome.
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Make and test your changes.
+4. Commit your changes with a descriptive message.
+5. Open a pull request explaining the changes.
+
+## Team
+
+**Project:** I2I By AI  
+**Event:** HackWave 3.0  
+**Repository:** [KkDhote/i2i-ai-HackWave-3](https://github.com/KkDhote/i2i-ai-HackWave-3)
+
+---
+
+*I2I By AI — Turning business intent into actionable work.*
