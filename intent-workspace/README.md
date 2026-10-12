@@ -1,23 +1,18 @@
-# Intent-to-Interface (MERN starter)
+# I2I By AI workspace
 
-User likhta hai goal -> server layout plan banata hai (rules ya Claude) -> React us plan ko components mein render karta hai.
+The frontend and backend live here:
 
-## Run
-```bash
-# 1) server
-cd server && cp .env.example .env && npm install
-npm run seed      # optional: MongoDB mein data daalta hai (bina Mongo ke bhi chalta hai)
-npm run dev       # http://localhost:5000
+- `client/`: React + Vite frontend.
+- `server/`: Express API, MongoDB records, AI interpretation, reminder worker, and Google Calendar integration.
 
-# 2) client (naya terminal)
-cd client && npm install && npm run dev   # http://localhost:5173
-```
-- MongoDB na ho to server seed data file se chalta hai (demo kabhi nahi tootega).
-- `.env` mein `ANTHROPIC_API_KEY` daaloge to AI layout choose karega; fail ho to rules fallback.
+Use the repository's [main README](../README.md) for the current setup commands, configuration, features, API overview, and limitations.
 
-## Structure
-- `server/catalog.js` : 16 components ki catalog + 4 curated layouts (naya task = yahan JSON add karo)
-- `server/intent.js`  : keyword intent + clarify logic
-- `server/llm.js`     : AI planner (JSON only) ; `server/plan.js` : validation
-- `client/src/registry.jsx` : sirf 6 generic components (StatCards, LineChart, BarList, ItemList, DataTable, ActionBar)
-- `client/src/App.jsx` : state, New/Updated/Unchanged detection, "Why this?", change log
+Feature guides:
+
+- [Reliability and record-based answers](RELIABILITY.md)
+- [Notifications and Resend email reminders](NOTIFICATIONS.md)
+- [Google Calendar, Meet, and places](CALENDAR.md)
+
+Run npm commands from `client` or `server`, not this directory. The default backend port is **5001**, and the frontend runs on **5173** with a Vite `/api` proxy. Current AI flows use `NVIDIA_API_KEY`; database configuration uses `MONGO_URI`.
+
+For a fresh disposable database, the demo seed command from `server/` is `node data/seedReal.js`. It replaces the listed `iw_*` data collections, including tasks and clients; read the main setup guide before running it. `npm run seed:real` is not currently defined.
